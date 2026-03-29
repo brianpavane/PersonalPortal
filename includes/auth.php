@@ -49,8 +49,19 @@ function require_login(): void {
     }
 }
 
-function login(string $username, string $password): bool {
-    $db = db();
+/**
+ * Validate credentials and establish session.
+ *
+ * Returns:
+ *   'ok'  — credentials valid, MFA not enabled, fully logged in.
+ *   'mfa' — credentials valid, MFA required; session set to pending state.
+ *   false — credentials invalid.
+ */
+function login(string $username, string $password): string|false
+{
+    require_once __DIR__ . '/totp.php';
+
+    $db   = db();
     $stmt = $db->prepare('SELECT setting_value FROM portal_settings WHERE setting_key = ?');
 
     $stmt->execute(['admin_username']);
@@ -59,18 +70,59 @@ function login(string $username, string $password): bool {
     $stmt->execute(['admin_password_hash']);
     $stored_hash = $stmt->fetchColumn();
 
-    if ($stored_user && $stored_hash
-        && hash_equals($stored_user, $username)    // constant-time comparison
-        && password_verify($password, $stored_hash)) {
-        start_session();
-        session_regenerate_id(true);
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_user']      = $username;
-        $_SESSION['login_time']      = time();
-        $_SESSION['last_regen']      = time();
-        return true;
+    if (!$stored_user || !$stored_hash
+        || !hash_equals((string)$stored_user, $username)
+        || !password_verify($password, (string)$stored_hash)) {
+        return false;
     }
-    return false;
+
+    start_session();
+    session_regenerate_id(true);
+
+    if (TOTP::isEnabled($db)) {
+        // Credentials valid but MFA not yet verified — set limited pending state.
+        // is_logged_in() will return false until mfa_complete() is called.
+        $_SESSION['mfa_pending']   = true;
+        $_SESSION['mfa_user']      = $username;
+        $_SESSION['mfa_issued_at'] = time();  // used to expire the pending window
+        return 'mfa';
+    }
+
+    // No MFA — complete login immediately
+    _complete_login($username);
+    return 'ok';
+}
+
+/** Called after successful TOTP verification to fully establish the session. */
+function mfa_complete(): void
+{
+    start_session();
+    $username = $_SESSION['mfa_user'] ?? '';
+    // Clear pending state before elevating privileges
+    unset($_SESSION['mfa_pending'], $_SESSION['mfa_user'], $_SESSION['mfa_issued_at']);
+    session_regenerate_id(true);
+    _complete_login($username);
+}
+
+/** Returns true if we are in the MFA-pending state (password ok, code not yet verified). */
+function is_mfa_pending(): bool
+{
+    start_session();
+    if (empty($_SESSION['mfa_pending']) || empty($_SESSION['mfa_issued_at'])) return false;
+    // Expire the pending window after 5 minutes
+    if ((time() - $_SESSION['mfa_issued_at']) > 300) {
+        unset($_SESSION['mfa_pending'], $_SESSION['mfa_user'], $_SESSION['mfa_issued_at']);
+        return false;
+    }
+    return true;
+}
+
+function _complete_login(string $username): void
+{
+    $_SESSION['admin_logged_in'] = true;
+    $_SESSION['admin_user']      = $username;
+    $_SESSION['login_time']      = time();
+    $_SESSION['last_regen']      = time();
 }
 
 function logout(): void {

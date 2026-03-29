@@ -15,6 +15,7 @@ Built with PHP 8+, MySQL, and vanilla JavaScript — no frameworks or build tool
 | **News** | Aggregated RSS feeds, sorted by recency; refreshes every 10 min |
 | **Notes** | Bullet-formatted notes with headings; edit via Admin |
 | **Admin Panel** | Password-protected CRUD for all content |
+| **MFA / 2FA** | TOTP two-factor auth (Authy, Google Authenticator, 1Password, etc.) |
 
 ---
 
@@ -232,6 +233,52 @@ git pull origin main
 # If schema changes are needed, run the new SQL manually:
 # mysql -u dbuser -p dbname < install/schema_update.sql
 ```
+
+---
+
+## Two-Factor Authentication (MFA)
+
+PersonalPortal supports TOTP-based MFA compatible with **Authy**, Google Authenticator, 1Password, Bitwarden, and any RFC 6238 app.
+
+### Enabling MFA
+
+1. Log into the admin panel
+2. Go to **Admin → Two-Factor Auth**
+3. Install Authy (or another authenticator app) on your phone
+4. Scan the QR code shown, or enter the manual key into Authy
+5. Enter the 6-digit code your app shows to confirm — MFA is now active
+
+### Login flow with MFA enabled
+
+```
+Enter username + password → Verify 6-digit TOTP code → Access granted
+```
+
+The pending state (after password, before TOTP) expires after **5 minutes**.
+
+### Disabling MFA
+
+Go to **Admin → Two-Factor Auth** and enter your current password to disable.
+This removes the stored secret from the database.
+
+### Security details
+
+- Secrets are stored **AES-256-CBC encrypted** in the database, keyed to `SECRET_KEY` in `config/config.php`. A database dump alone cannot clone your TOTP device — the attacker also needs the config file.
+- TOTP verification accepts the current 30-second window ±1 (90-second tolerance) to handle clock drift.
+- The TOTP verification page shares the same IP-based rate limiter as the login page: 5 failures triggers a 15-minute lockout.
+- The QR code is generated **client-side** using qrcodejs — the secret is never sent to any third-party server.
+
+### Lost access / locked out
+
+If you lose your authenticator device:
+
+1. SSH into your server
+2. Run the following MySQL command to disable MFA directly:
+   ```sql
+   UPDATE portal_settings SET setting_value = '0' WHERE setting_key = 'totp_enabled';
+   UPDATE portal_settings SET setting_value = '' WHERE setting_key = 'totp_secret';
+   ```
+3. Log in with just your password, then re-enroll a new device.
 
 ---
 

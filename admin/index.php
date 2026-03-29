@@ -48,12 +48,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $username = trim($_POST['username'] ?? '');
             $password = $_POST['password'] ?? '';
 
-            if (login($username, $password)) {
+            $result = login($username, $password);
+            if ($result === 'ok') {
                 rate_limit_clear($client_ip);
                 header('Location: ' . $redirect);
                 exit;
+            } elseif ($result === 'mfa') {
+                rate_limit_clear($client_ip);
+                // Store redirect destination across the MFA step
+                session_start();
+                $_SESSION['mfa_redirect'] = $redirect;
+                header('Location: mfa_verify.php');
+                exit;
             }
-            // login() failed — rate_limit_check() already recorded the attempt
+            // Credentials invalid — rate_limit_check() already recorded the attempt
             $error = 'Invalid username or password.';
             // Additional artificial delay to slow automated attacks
             usleep(500000); // 0.5 seconds

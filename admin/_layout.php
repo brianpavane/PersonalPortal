@@ -46,6 +46,24 @@
         <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/></svg>
         Change Password
       </a>
+      <a class="nav-link <?= ($active_nav??'') === 'mfa' ? 'active' : '' ?>" href="mfa_setup.php">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1M8 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3"/></svg>
+        Two-Factor Auth
+        <?php
+          // Show a badge if MFA is not yet enabled
+          if (!isset($_mfa_badge_checked)) {
+              $_mfa_badge_checked = true;
+              try {
+                  require_once __DIR__ . '/../includes/totp.php';
+                  $_mfa_enabled = TOTP::isEnabled(db());
+              } catch (Throwable $e) { $_mfa_enabled = false; }
+          }
+          if (empty($_mfa_enabled)):
+        ?>
+        <span style="margin-left:auto;background:var(--accent-orange);color:#fff;
+                     font-size:.65rem;padding:.1rem .35rem;border-radius:4px;font-weight:700">OFF</span>
+        <?php endif; ?>
+      </a>
     </nav>
     <div class="admin-sidebar-footer">
       <a href="../index.php" class="nav-link">&#8592; Portal</a>
