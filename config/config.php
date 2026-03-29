@@ -1,0 +1,46 @@
+<?php
+/**
+ * PersonalPortal - Configuration File
+ * Copy this file and update values for your environment.
+ * IMPORTANT: Keep this file outside public web root if possible,
+ * or ensure .htaccess denies direct access to /config/
+ */
+
+// ── Database ────────────────────────────────────────────────────────────────
+define('DB_HOST', 'mysql.example.com');   // Dreamhost MySQL hostname
+define('DB_NAME', 'yourdatabase');         // Database name
+define('DB_USER', 'dbusername');           // Database username
+define('DB_PASS', 'dbpassword');           // Database password
+define('DB_CHARSET', 'utf8mb4');
+
+// ── Application ─────────────────────────────────────────────────────────────
+define('APP_NAME', 'Personal Portal');
+define('APP_URL',  'https://yourdomain.com'); // No trailing slash
+define('TIMEZONE', 'America/New_York');        // PHP timezone string
+
+// ── Session ─────────────────────────────────────────────────────────────────
+define('SESSION_NAME', 'portal_session');
+define('SESSION_LIFETIME', 3600); // seconds (1 hour)
+
+// ── Stock API ───────────────────────────────────────────────────────────────
+// Uses Yahoo Finance public endpoint — no API key required.
+// Optionally set an Alpha Vantage key for a fallback:
+define('ALPHAVANTAGE_KEY', ''); // Optional; leave blank to use Yahoo only
+
+// ── News Feeds ──────────────────────────────────────────────────────────────
+// Default RSS feeds loaded at install time.
+// Additional feeds can be added via Admin > Settings > News Feeds.
+define('DEFAULT_NEWS_FEEDS', serialize([
+    ['name' => 'Reuters',       'url' => 'https://feeds.reuters.com/reuters/topNews'],
+    ['name' => 'BBC News',      'url' => 'https://feeds.bbci.co.uk/news/rss.xml'],
+    ['name' => 'Hacker News',   'url' => 'https://news.ycombinator.com/rss'],
+]));
+
+// ── Security ────────────────────────────────────────────────────────────────
+// Change this to a random 32-char string.
+define('SECRET_KEY', 'CHANGE_THIS_TO_A_RANDOM_32_CHAR_STRING__');
+
+// ── Cache ────────────────────────────────────────────────────────────────────
+define('STOCK_CACHE_TTL',  300);  // seconds; stock data cache lifetime
+define('NEWS_CACHE_TTL',   600);  // seconds; news cache lifetime
+define('CACHE_DIR', __DIR__ . '/../cache');
