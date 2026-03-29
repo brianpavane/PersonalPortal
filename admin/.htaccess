@@ -1,0 +1,21 @@
+# Admin directory — additional hardening
+Options -Indexes
+
+# Prevent PHP source being served as text in edge cases
+<FilesMatch "\.php$">
+  Header always set X-Content-Type-Options "nosniff"
+</FilesMatch>
+
+# Block direct access to layout partials (underscore prefix convention)
+<FilesMatch "^_">
+  Require all denied
+</FilesMatch>
+
+# Optional: Add HTTP Basic Auth as a second factor in front of the PHP login.
+# Uncomment and set the path to your .htpasswd file (created via Dreamhost panel
+# or: htpasswd -c /path/outside/webroot/.htpasswd yourusername)
+#
+# AuthType Basic
+# AuthName "Portal Admin"
+# AuthUserFile /home/username/.htpasswd
+# Require valid-user

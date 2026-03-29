@@ -3,8 +3,8 @@ require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_login();
 
-$db = (require_once __DIR__ . '/../includes/db.php') ? db() : null;
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/functions.php';
 $db = db();
 
 $bm_count  = $db->query('SELECT COUNT(*) FROM bookmarks')->fetchColumn();

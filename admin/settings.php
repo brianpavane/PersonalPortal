@@ -35,6 +35,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $url  = trim($_POST['feed_url']  ?? '');
         if (!$name || !$url) $errs[] = 'Feed name and URL are required.';
         if ($url && !filter_var($url, FILTER_VALIDATE_URL)) $errs[] = 'Invalid feed URL.';
+        // Restrict to http/https — reject file://, gopher://, ftp://, etc.
+        if ($url && !in_array(strtolower((string)parse_url($url, PHP_URL_SCHEME)), ['http', 'https'], true)) {
+            $errs[] = 'Feed URL must use http:// or https://.';
+        }
         if (!$errs) {
             $max = $db->query('SELECT COALESCE(MAX(sort_order),0)+1 FROM news_feeds')->fetchColumn();
             $db->prepare('INSERT INTO news_feeds (name,url,sort_order) VALUES (?,?,?)')->execute([$name,$url,$max]);

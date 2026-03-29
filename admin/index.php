@@ -5,30 +5,60 @@
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/functions.php';
 
-// Already logged in → redirect to dashboard
+// Already logged in → dashboard
 if (is_logged_in()) {
     header('Location: dashboard.php');
     exit;
 }
 
-$error    = '';
-$redirect = $_GET['redirect'] ?? 'dashboard.php';
+// ── Safe redirect whitelist ───────────────────────────────────────────────────
+// Only allow redirecting back to known admin pages — never to external URLs.
+$allowed_redirects = [
+    'dashboard.php', 'bookmarks.php', 'categories.php',
+    'notes.php', 'settings.php', 'password.php',
+];
+$redirect_raw = $_GET['redirect'] ?? '';
+// Strip path components and parameters; only keep the bare filename
+$redirect = basename(preg_replace('/[^a-zA-Z0-9._\-]/', '', $redirect_raw));
+if (!in_array($redirect, $allowed_redirects, true)) {
+    $redirect = 'dashboard.php';
+}
+
+$error     = '';
+$locked    = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
+    // 1. CSRF check first
+    if (!verify_csrf($_POST['csrf_token'] ?? '')) {
+        $error = 'Invalid request token. Please reload and try again.';
+    } else {
+        // 2. Rate-limit check (by IP)
+        $client_ip = $_SERVER['HTTP_X_FORWARDED_FOR']
+                   ?? $_SERVER['REMOTE_ADDR']
+                   ?? '0.0.0.0';
+        // Use only the first IP if behind a proxy (don't trust full header)
+        $client_ip = trim(explode(',', $client_ip)[0]);
 
-    if (login($username, $password)) {
-        $safe = filter_var($redirect, FILTER_VALIDATE_URL) === false
-              ? ltrim($redirect, '/')
-              : 'dashboard.php';
-        header('Location: ' . $safe);
-        exit;
+        if (!rate_limit_check($client_ip)) {
+            $locked = true;
+            $error  = 'Too many failed attempts. Please wait 15 minutes before trying again.';
+        } else {
+            $username = trim($_POST['username'] ?? '');
+            $password = $_POST['password'] ?? '';
+
+            if (login($username, $password)) {
+                rate_limit_clear($client_ip);
+                header('Location: ' . $redirect);
+                exit;
+            }
+            // login() failed — rate_limit_check() already recorded the attempt
+            $error = 'Invalid username or password.';
+            // Additional artificial delay to slow automated attacks
+            usleep(500000); // 0.5 seconds
+        }
     }
-    // Artificial delay to slow brute-force
-    sleep(1);
-    $error = 'Invalid username or password.';
 }
 ?>
 <!DOCTYPE html>
@@ -36,34 +66,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Admin Login — <?= htmlspecialchars(APP_NAME) ?></title>
+<title>Admin Login — <?= h(APP_NAME) ?></title>
 <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
 <body>
 <div class="login-page">
   <div class="login-card">
     <h1>&#9881; Admin</h1>
-    <p class="subtitle"><?= htmlspecialchars(APP_NAME) ?></p>
+    <p class="subtitle"><?= h(APP_NAME) ?></p>
 
     <?php if ($error): ?>
-    <div class="alert alert-danger"><?= htmlspecialchars($error) ?></div>
+    <div class="alert <?= $locked ? 'alert-info' : 'alert-danger' ?>"><?= h($error) ?></div>
     <?php endif; ?>
 
+    <?php if (!$locked): ?>
     <form method="post" autocomplete="off">
       <?= csrf_field() ?>
       <div class="form-group">
         <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-control" autofocus autocomplete="username" required>
+        <input type="text" name="username" class="form-control" autofocus
+               autocomplete="username" required maxlength="100">
       </div>
       <div class="form-group">
         <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-control" autocomplete="current-password" required>
+        <input type="password" name="password" class="form-control"
+               autocomplete="current-password" required maxlength="200">
       </div>
-      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem">Sign In</button>
+      <button type="submit" class="btn btn-primary"
+              style="width:100%;justify-content:center;margin-top:.5rem">Sign In</button>
     </form>
+    <?php endif; ?>
 
     <p style="text-align:center;margin-top:1.5rem">
-      <a href="../index.php" style="font-size:.8rem;color:var(--text-muted)">← Back to Portal</a>
+      <a href="../index.php" style="font-size:.8rem;color:var(--text-muted)">&#8592; Back to Portal</a>
     </p>
   </div>
 </div>

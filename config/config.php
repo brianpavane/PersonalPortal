@@ -37,8 +37,10 @@ define('DEFAULT_NEWS_FEEDS', serialize([
 ]));
 
 // ── Security ────────────────────────────────────────────────────────────────
-// Change this to a random 32-char string.
-define('SECRET_KEY', 'CHANGE_THIS_TO_A_RANDOM_32_CHAR_STRING__');
+// REQUIRED: Change this before deploying. Generate with:
+//   php -r "echo bin2hex(random_bytes(32));"
+// The installer auto-generates this; only edit manually if re-keying.
+define('SECRET_KEY', 'REPLACE_BEFORE_DEPLOY_' . md5(__FILE__));
 
 // ── Cache ────────────────────────────────────────────────────────────────────
 define('STOCK_CACHE_TTL',  300);  // seconds; stock data cache lifetime

@@ -1,41 +1,95 @@
 # PersonalPortal — Root .htaccess
 Options -Indexes
 
-# PHP settings (Dreamhost shared hosting)
-<IfModule mod_php8.c>
-  php_value upload_max_filesize 8M
-  php_value post_max_size 8M
-  php_value max_execution_time 30
-  php_flag display_errors Off
-  php_flag log_errors On
-</IfModule>
-
-# Rewrite engine for clean URLs (optional)
+# ── HTTPS Redirect ────────────────────────────────────────────────────────────
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
-  # Block access to hidden files
+  # Force HTTPS (skip on localhost for dev)
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP_HOST} !^localhost [NC]
+  RewriteCond %{HTTP_HOST} !^127\.0\.0\.1
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # Block dotfiles (except .well-known for Let's Encrypt)
   RewriteRule (^|/)\.(?!well-known) - [F,L]
 
-  # Block direct access to PHP includes
-  RewriteRule ^includes/ - [F,L]
-  RewriteRule ^config/   - [F,L]
-  RewriteRule ^cache/    - [F,L]
+  # Block direct access to sensitive directories
+  RewriteRule ^includes/  - [F,L]
+  RewriteRule ^config/    - [F,L]
+  RewriteRule ^cache/     - [F,L]
+  RewriteRule ^install/installed\.lock$ - [F,L]
 </IfModule>
 
-# Security headers
+# ── PHP Hardening ─────────────────────────────────────────────────────────────
+<IfModule mod_php8.c>
+  php_value  upload_max_filesize  8M
+  php_value  post_max_size        8M
+  php_value  max_execution_time   30
+  php_flag   display_errors       Off
+  php_flag   log_errors           On
+  php_value  error_reporting      0
+  php_flag   expose_php           Off
+  php_value  session.use_strict_mode   1
+  php_value  session.use_only_cookies  1
+  php_value  session.cookie_httponly   1
+  php_value  session.cookie_samesite   Strict
+</IfModule>
+# Same for mod_php (older Dreamhost plans)
+<IfModule mod_php7.c>
+  php_flag   display_errors       Off
+  php_flag   log_errors           On
+  php_value  error_reporting      0
+  php_flag   expose_php           Off
+</IfModule>
+
+# ── Security Headers ──────────────────────────────────────────────────────────
 <IfModule mod_headers.c>
-  Header always set X-Frame-Options "SAMEORIGIN"
+  # Enforce HTTPS for 1 year (only sent over HTTPS, harmless if not)
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains" "expr=%{HTTPS} == 'on'"
+
+  # Prevent clickjacking — this page is never embedded
+  Header always set X-Frame-Options "DENY"
+
+  # Prevent MIME-type sniffing
   Header always set X-Content-Type-Options "nosniff"
+
+  # Control referrer info
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
-  Header always set X-XSS-Protection "1; mode=block"
+
+  # X-XSS-Protection is deprecated; set to 0 so legacy browsers don't
+  # use the broken XSS auditor — we rely on CSP instead
+  Header always set X-XSS-Protection "0"
+
+  # Content Security Policy
+  # - default-src 'none'  → deny everything not explicitly allowed
+  # - script-src 'self' 'unsafe-inline' → inline scripts exist in admin pages
+  # - style-src 'self' 'unsafe-inline'  → inline styles used throughout
+  # - img-src 'self' data: https://www.google.com → favicons + data: SVG fallback
+  # - connect-src 'self' → AJAX calls to /api/
+  # - form-action 'self'  → forms only POST back to this origin
+  # - frame-ancestors 'none' → stronger than X-Frame-Options for modern browsers
+  # - base-uri 'self'    → block <base> tag injection
+  Header always set Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'"
+
+  # Disable dangerous browser features
+  Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), bluetooth=(), display-capture=()"
+
+  # Remove PHP version fingerprinting
+  Header always unset X-Powered-By
+  Header unset X-Powered-By
 </IfModule>
 
-# Cache static assets
+# ── Cache Static Assets ───────────────────────────────────────────────────────
 <IfModule mod_expires.c>
   ExpiresActive On
-  ExpiresByType text/css              "access plus 1 week"
-  ExpiresByType application/javascript "access plus 1 week"
-  ExpiresByType image/png             "access plus 1 month"
-  ExpiresByType image/svg+xml         "access plus 1 month"
+  ExpiresByType text/css               "access plus 1 week"
+  ExpiresByType application/javascript  "access plus 1 week"
+  ExpiresByType image/png              "access plus 1 month"
+  ExpiresByType image/svg+xml          "access plus 1 month"
 </IfModule>
+
+# ── Restrict sensitive file types ─────────────────────────────────────────────
+<FilesMatch "\.(sql|log|bak|orig|cache|lock|md)$">
+  Require all denied
+</FilesMatch>
