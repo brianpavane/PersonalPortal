@@ -139,6 +139,13 @@ saves wipe their respective caches automatically).
 
 ## Version History & What Each Release Changes
 
+### v1.4.3
+- Fix stock widget "Stock data unavailable" error: Yahoo Finance v8 now requires a crumb cookie; the API now fetches a session crumb automatically before each batch of quotes.
+- Switched from `query1` to `query2` Yahoo Finance host (more permissive).
+- Removed PHP 8.0-only `mixed` type hint for PHP 7.4 compatibility.
+- Added output buffering to prevent PHP warnings from corrupting the JSON response.
+- No database changes.
+
 ### v1.4.2
 - World Clock now supports up to 10 timezones (was 6).
 - Typing a city name in the Label field auto-fills the IANA timezone; typing an IANA timezone auto-fills the label. San Francisco, Mumbai, and Bangalore are included in the city lookup.
