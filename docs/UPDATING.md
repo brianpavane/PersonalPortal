@@ -1,7 +1,6 @@
 # Updating PersonalPortal
 
 **Repository:** https://github.com/brianpavane/PersonalPortal
-**Branch:** `claude/personal-activity-portal-7A44R`
 
 How to apply new versions without reinstalling from scratch, from **any** previous version.
 
@@ -16,7 +15,7 @@ mysqldump -u DB_USER -p DB_NAME > backup_$(date +%Y%m%d).sql
 # 2. Pull new code
 cd /path/to/personalportal
 git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
-git pull origin claude/personal-activity-portal-7A44R
+git pull origin main
 
 # 3. Run ALL migration files that are newer than your current version (see table below)
 #    All migrations are idempotent — safe to re-run; running extras causes no harm.
@@ -67,7 +66,7 @@ If you installed via git:
 cd /path/to/personalportal
 # Confirm your remote points to the correct repo
 git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
-git pull origin claude/personal-activity-portal-7A44R
+git pull origin main
 ```
 
 If you installed without git (first time setup):
@@ -76,13 +75,13 @@ If you installed without git (first time setup):
 cd /path/to/personalportal
 git init
 git remote add origin https://github.com/brianpavane/PersonalPortal.git
-git fetch origin claude/personal-activity-portal-7A44R
-git checkout claude/personal-activity-portal-7A44R
+git fetch origin main
+git checkout main
 ```
 
 If you prefer a ZIP download (no git required):
 ```
-https://github.com/brianpavane/PersonalPortal/archive/refs/heads/claude/personal-activity-portal-7A44R.zip
+https://github.com/brianpavane/PersonalPortal/archive/refs/heads/main.zip
 ```
 Extract and upload the new files via FTP/SFTP, **skipping** `config/config.php`.
 
@@ -95,7 +94,7 @@ Extract and upload the new files via FTP/SFTP, **skipping** `config/config.php`.
 ### 3. Run migration SQL
 
 Migration files live at:
-https://github.com/brianpavane/PersonalPortal/tree/claude/personal-activity-portal-7A44R/docs/migrations
+https://github.com/brianpavane/PersonalPortal/tree/main/docs/migrations
 
 Open phpMyAdmin or your MySQL client, select your database, then run each
 migration file that is newer than your installed version (see table above).
