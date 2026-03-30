@@ -72,6 +72,48 @@ function h(string $s): string {
     return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+// ── 16-colour palette ─────────────────────────────────────────────────────────
+
+const COLOUR_PALETTE = [
+    '#58a6ff', '#79c0ff', '#3fb950', '#56d364',
+    '#a5f3d0', '#e3b341', '#ffa657', '#f0883e',
+    '#f85149', '#ff7b72', '#ffa28b', '#bc8cff',
+    '#d2a8ff', '#ff9a8b', '#8b949e', '#c9d1d9',
+];
+
+/**
+ * Render a 16-swatch colour palette + HTML colour-picker combo.
+ *
+ * @param string $field_name  The <input> name attribute (submitted with form).
+ * @param string $current     Currently selected hex value (e.g. '#58a6ff').
+ */
+function color_palette_field(string $field_name, string $current = '#58a6ff'): string {
+    $current = preg_match('/^#[0-9a-fA-F]{6}$/', $current) ? $current : '#58a6ff';
+    $id      = 'cp_' . preg_replace('/[^a-zA-Z0-9]/', '_', $field_name);
+
+    $out  = '<div class="color-palette">';
+    foreach (COLOUR_PALETTE as $hex) {
+        $active = strcasecmp($hex, $current) === 0 ? ' active' : '';
+        $out .= '<button type="button"'
+              . ' class="color-swatch' . $active . '"'
+              . ' data-target="' . h($id) . '"'
+              . ' data-color="'  . h($hex) . '"'
+              . ' style="background:' . h($hex) . '"'
+              . ' title="' . h($hex) . '"'
+              . ' aria-label="' . h($hex) . '"></button>';
+    }
+    $out .= '</div>';
+    $out .= '<div style="display:flex;align-items:center;gap:.6rem;margin-top:.5rem">';
+    $out .= '<input type="color" id="' . h($id) . '" name="' . h($field_name) . '"'
+          . ' class="form-control color-input"'
+          . ' style="height:38px;padding:.2rem;width:60px;flex-shrink:0;cursor:pointer"'
+          . ' value="' . h($current) . '">';
+    $out .= '<span style="font-size:.8rem;color:var(--text-muted);font-family:monospace"'
+          . ' id="' . h($id) . '_display">' . h($current) . '</span>';
+    $out .= '</div>';
+    return $out;
+}
+
 /** Convert plain-text bullet notation to safe HTML. */
 function bullets_to_html(string $text): string {
     $lines  = explode("\n", $text);

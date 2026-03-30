@@ -7,9 +7,13 @@
 
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/portal_auth.php';
+portal_require_login_api();
 
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: public, max-age=' . STOCK_CACHE_TTL);
+// Use private cache when auth is required so proxy caches never store authenticated data
+$cache_visibility = portal_auth_enabled() ? 'private' : 'public';
+header('Cache-Control: ' . $cache_visibility . ', max-age=' . STOCK_CACHE_TTL);
 
 // ── Symbol resolution ─────────────────────────────────────────────────────────
 if (!empty($_GET['symbols'])) {

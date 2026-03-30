@@ -15,11 +15,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) die('Invalid CSRF token.');
 
     $post_action = $_POST['action'] ?? '';
+    $edit_id     = (int)($_POST['id']     ?? 0);
+
+    // ── Move up / down ────────────────────────────────────────────────────────
+    if ($post_action === 'move') {
+        $direction = $_POST['direction'] ?? '';
+        if (in_array($direction, ['up', 'down'], true) && $edit_id) {
+            $all = $db->query(
+                'SELECT id FROM notes ORDER BY sort_order, title'
+            )->fetchAll(PDO::FETCH_COLUMN);
+            $pos = array_search($edit_id, $all);
+            if ($pos !== false) {
+                if ($direction === 'up' && $pos > 0) {
+                    [$all[$pos], $all[$pos - 1]] = [$all[$pos - 1], $all[$pos]];
+                } elseif ($direction === 'down' && $pos < count($all) - 1) {
+                    [$all[$pos], $all[$pos + 1]] = [$all[$pos + 1], $all[$pos]];
+                }
+                $upd = $db->prepare('UPDATE notes SET sort_order=? WHERE id=?');
+                foreach ($all as $i => $nid) {
+                    $upd->execute([($i + 1) * 10, $nid]);
+                }
+            }
+        }
+        header('Location: notes.php');
+        exit;
+    }
+
     $title       = trim($_POST['title']   ?? '');
     $content     = $_POST['content']      ?? '';
     $color       = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['color'] ?? '') ? $_POST['color'] : '#58a6ff';
     $sort_order  = (int)($_POST['sort_order'] ?? 0);
-    $edit_id     = (int)($_POST['id']     ?? 0);
 
     if (!$title) $errors[] = 'Title is required.';
 
@@ -50,7 +75,8 @@ if ($action === 'edit' && $id) {
     if (!$edit_note) $action = 'list';
 }
 
-$notes = $db->query('SELECT * FROM notes ORDER BY sort_order, title')->fetchAll();
+$notes         = $db->query('SELECT * FROM notes ORDER BY sort_order, title')->fetchAll();
+$last_note_idx = count($notes) - 1;
 
 $page_title = 'Notes';
 $active_nav = 'notes';
@@ -74,25 +100,14 @@ include __DIR__ . '/_layout.php';
       <input type="hidden" name="action" value="<?= $action ?>">
       <?php if ($action === 'edit'): ?><input type="hidden" name="id" value="<?= (int)$edit_note['id'] ?>"><?php endif; ?>
 
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Title</label>
-          <input type="text" name="title" class="form-control" value="<?= h($edit_note['title'] ?? '') ?>" required maxlength="200">
-        </div>
-        <div class="form-row" style="align-items:end">
-          <div class="form-group">
-            <label class="form-label">Accent Color</label>
-            <input type="color" name="color" class="form-control" style="height:42px;padding:.25rem"
-                   value="<?= h($edit_note['color'] ?? '#58a6ff') ?>">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Sort Order</label>
-            <input type="number" name="sort_order" class="form-control"
-                   value="<?= (int)($edit_note['sort_order'] ?? 0) ?>" min="0">
-          </div>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Title</label>
+        <input type="text" name="title" class="form-control" value="<?= h($edit_note['title'] ?? '') ?>" required maxlength="200">
       </div>
-
+      <div class="form-group">
+        <label class="form-label">Accent Color</label>
+        <?= color_palette_field('color', $edit_note['color'] ?? '#58a6ff') ?>
+      </div>
       <div class="form-group">
         <label class="form-label">Content</label>
         <textarea name="content" class="form-control" rows="12" style="font-family:monospace;font-size:.88rem"><?= h($edit_note['content'] ?? '') ?></textarea>
@@ -164,18 +179,34 @@ include __DIR__ . '/_layout.php';
   <div class="table-wrap">
     <table>
       <thead><tr>
+        <th>Order</th>
         <th>Title</th>
         <th>Preview</th>
         <th>Updated</th>
-        <th>Order</th>
         <th>Actions</th>
       </tr></thead>
       <tbody>
       <?php if (!$notes): ?>
         <tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:1.5rem">No notes yet.</td></tr>
       <?php endif; ?>
-      <?php foreach ($notes as $note): ?>
+      <?php foreach ($notes as $i => $note): ?>
       <tr>
+        <td style="white-space:nowrap">
+          <form method="post" style="display:inline">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="<?= $note['id'] ?>">
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="btn btn-sm btn-secondary" <?= $i === 0 ? 'disabled' : '' ?> title="Move up">&#9650;</button>
+          </form>
+          <form method="post" style="display:inline">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="<?= $note['id'] ?>">
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="btn btn-sm btn-secondary" <?= $i === $last_note_idx ? 'disabled' : '' ?> title="Move down">&#9660;</button>
+          </form>
+        </td>
         <td>
           <span class="color-dot" style="background:<?= h($note['color']) ?>"></span>
           <strong><?= h($note['title']) ?></strong>
@@ -184,7 +215,6 @@ include __DIR__ . '/_layout.php';
           <?= h(mb_substr($note['content'], 0, 80)) ?>…
         </td>
         <td style="font-size:.8rem;color:var(--text-muted)"><?= h(substr($note['updated_at'], 0, 10)) ?></td>
-        <td><?= (int)$note['sort_order'] ?></td>
         <td style="white-space:nowrap">
           <a href="?action=edit&id=<?= $note['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
           <form method="post" style="display:inline" onsubmit="return confirm('Delete this note?')">

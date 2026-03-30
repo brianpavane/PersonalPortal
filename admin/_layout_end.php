@@ -1,5 +1,6 @@
   </main>
 </div><!-- /admin-wrapper -->
+<script src="../assets/js/admin.js"></script>
 <script>
 // Mobile sidebar toggle
 document.addEventListener('keydown', e => {

@@ -18,11 +18,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $post_action = $_POST['action'] ?? '';
-    $name        = trim($_POST['name'] ?? '');
-    $icon        = trim($_POST['icon'] ?? 'folder');
-    $color       = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['color'] ?? '') ? $_POST['color'] : '#58a6ff';
-    $sort_order  = (int)($_POST['sort_order'] ?? 0);
     $edit_id     = (int)($_POST['id'] ?? 0);
+
+    // ── Move up / down ────────────────────────────────────────────────────────
+    if ($post_action === 'move') {
+        $direction = $_POST['direction'] ?? '';
+        if (in_array($direction, ['up', 'down'], true) && $edit_id) {
+            $all = $db->query(
+                'SELECT id FROM bookmark_categories ORDER BY sort_order, name'
+            )->fetchAll(PDO::FETCH_COLUMN);
+            $pos = array_search($edit_id, $all);
+            if ($pos !== false) {
+                if ($direction === 'up' && $pos > 0) {
+                    [$all[$pos], $all[$pos - 1]] = [$all[$pos - 1], $all[$pos]];
+                } elseif ($direction === 'down' && $pos < count($all) - 1) {
+                    [$all[$pos], $all[$pos + 1]] = [$all[$pos + 1], $all[$pos]];
+                }
+                $upd = $db->prepare('UPDATE bookmark_categories SET sort_order=? WHERE id=?');
+                foreach ($all as $i => $cid) {
+                    $upd->execute([($i + 1) * 10, $cid]);
+                }
+            }
+        }
+        header('Location: categories.php');
+        exit;
+    }
+
+    $name       = trim($_POST['name'] ?? '');
+    $icon       = trim($_POST['icon'] ?? 'folder');
+    $color      = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['color'] ?? '') ? $_POST['color'] : '#58a6ff';
+    $sort_order = (int)($_POST['sort_order'] ?? 0);
 
     if (!$name) $errors[] = 'Category name is required.';
 
@@ -59,6 +84,8 @@ $categories = $db->query(
      FROM bookmark_categories c ORDER BY sort_order, name'
 )->fetchAll();
 
+$last_cat_idx = count($categories) - 1;
+
 $page_title = 'Categories';
 $active_nav = 'categories';
 include __DIR__ . '/_layout.php';
@@ -84,17 +111,9 @@ include __DIR__ . '/_layout.php';
         <label class="form-label">Name</label>
         <input type="text" name="name" class="form-control" value="<?= h($edit_cat['name'] ?? '') ?>" required maxlength="100">
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Accent Color</label>
-          <input type="color" name="color" class="form-control" style="height:42px;padding:.25rem"
-                 value="<?= h($edit_cat['color'] ?? '#58a6ff') ?>">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Sort Order</label>
-          <input type="number" name="sort_order" class="form-control"
-                 value="<?= (int)($edit_cat['sort_order'] ?? 0) ?>" min="0">
-        </div>
+      <div class="form-group">
+        <label class="form-label">Accent Color</label>
+        <?= color_palette_field('color', $edit_cat['color'] ?? '#58a6ff') ?>
       </div>
       <div style="display:flex;gap:.75rem;margin-top:.5rem">
         <button type="submit" class="btn btn-success"><?= $action === 'add' ? 'Add Category' : 'Save Changes' ?></button>
@@ -110,25 +129,40 @@ include __DIR__ . '/_layout.php';
   <div class="table-wrap">
     <table>
       <thead><tr>
+        <th>Order</th>
         <th>Name</th>
         <th>Color</th>
         <th>Bookmarks</th>
-        <th>Order</th>
         <th>Actions</th>
       </tr></thead>
       <tbody>
       <?php if (!$categories): ?>
         <tr><td colspan="5" style="color:var(--text-muted);text-align:center;padding:1.5rem">No categories yet.</td></tr>
       <?php endif; ?>
-      <?php foreach ($categories as $cat): ?>
+      <?php foreach ($categories as $i => $cat): ?>
       <tr>
+        <td style="white-space:nowrap">
+          <form method="post" style="display:inline">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="<?= $cat['id'] ?>">
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="btn btn-sm btn-secondary" <?= $i === 0 ? 'disabled' : '' ?> title="Move up">&#9650;</button>
+          </form>
+          <form method="post" style="display:inline">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="<?= $cat['id'] ?>">
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="btn btn-sm btn-secondary" <?= $i === $last_cat_idx ? 'disabled' : '' ?> title="Move down">&#9660;</button>
+          </form>
+        </td>
         <td>
           <span class="color-dot" style="background:<?= h($cat['color']) ?>"></span>
           <?= h($cat['name']) ?>
         </td>
         <td><code style="font-size:.8rem"><?= h($cat['color']) ?></code></td>
         <td><?= (int)$cat['bm_count'] ?></td>
-        <td><?= (int)$cat['sort_order'] ?></td>
         <td style="white-space:nowrap">
           <a href="?action=edit&id=<?= $cat['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
           <form method="post" style="display:inline" onsubmit="return confirm('Delete category and all its bookmarks?')">

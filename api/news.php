@@ -6,9 +6,13 @@
 
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/portal_auth.php';
+portal_require_login_api();
 
 header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: public, max-age=' . NEWS_CACHE_TTL);
+// Use private cache when auth is required so proxy caches never store authenticated data
+$cache_visibility = portal_auth_enabled() ? 'private' : 'public';
+header('Cache-Control: ' . $cache_visibility . ', max-age=' . NEWS_CACHE_TTL);
 
 $limit     = min((int)($_GET['limit'] ?? 25), 60);
 $cache_key = 'news_' . $limit;

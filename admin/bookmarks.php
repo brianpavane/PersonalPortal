@@ -15,12 +15,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verify_csrf($_POST['csrf_token'] ?? '')) die('Invalid CSRF token.');
 
     $post_action = $_POST['action'] ?? '';
+    $edit_id     = (int)($_POST['id']         ?? 0);
+
+    // ── Move up / down within the same category ───────────────────────────────
+    if ($post_action === 'move') {
+        $direction = $_POST['direction'] ?? '';
+        if (in_array($direction, ['up', 'down'], true) && $edit_id) {
+            // Determine which category this bookmark belongs to
+            $cat_row = $db->prepare('SELECT category_id FROM bookmarks WHERE id=?');
+            $cat_row->execute([$edit_id]);
+            $bm_cat  = (int)($cat_row->fetchColumn() ?: 0);
+
+            if ($bm_cat) {
+                $all = $db->prepare(
+                    'SELECT id FROM bookmarks WHERE category_id=? ORDER BY sort_order, title'
+                );
+                $all->execute([$bm_cat]);
+                $all = $all->fetchAll(PDO::FETCH_COLUMN);
+                $pos = array_search($edit_id, $all);
+                if ($pos !== false) {
+                    if ($direction === 'up' && $pos > 0) {
+                        [$all[$pos], $all[$pos - 1]] = [$all[$pos - 1], $all[$pos]];
+                    } elseif ($direction === 'down' && $pos < count($all) - 1) {
+                        [$all[$pos], $all[$pos + 1]] = [$all[$pos + 1], $all[$pos]];
+                    }
+                    $upd = $db->prepare('UPDATE bookmarks SET sort_order=? WHERE id=?');
+                    foreach ($all as $i => $bid) {
+                        $upd->execute([($i + 1) * 10, $bid]);
+                    }
+                }
+            }
+        }
+        $back_cat = (int)($_GET['cat'] ?? 0);
+        header('Location: bookmarks.php' . ($back_cat ? '?cat=' . $back_cat : ''));
+        exit;
+    }
+
     $title       = trim($_POST['title']       ?? '');
     $url         = trim($_POST['url']         ?? '');
     $cat_id      = (int)($_POST['category_id'] ?? 0);
     $desc        = trim($_POST['description'] ?? '');
     $sort_order  = (int)($_POST['sort_order'] ?? 0);
-    $edit_id     = (int)($_POST['id']         ?? 0);
 
     // Validate URL
     if (!$title)  $errors[] = 'Title is required.';
@@ -80,6 +115,15 @@ $stmt = $db->prepare($bm_query);
 $stmt->execute($params);
 $bookmarks = $stmt->fetchAll();
 
+// Build first/last ID per category for disabling boundary arrow buttons
+$cat_bm_first = [];
+$cat_bm_last  = [];
+foreach ($bookmarks as $bm) {
+    $cid = $bm['category_id'];
+    if (!isset($cat_bm_first[$cid])) $cat_bm_first[$cid] = $bm['id'];
+    $cat_bm_last[$cid] = $bm['id'];
+}
+
 $page_title = 'Bookmarks';
 $active_nav = 'bookmarks';
 include __DIR__ . '/_layout.php';
@@ -111,22 +155,16 @@ include __DIR__ . '/_layout.php';
         <input type="url" name="url" class="form-control" value="<?= h($edit_bm['url'] ?? '') ?>" required
                placeholder="https://example.com">
       </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label">Category</label>
-          <select name="category_id" class="form-control" required>
-            <option value="">— Select —</option>
-            <?php foreach ($categories as $cat): ?>
-            <option value="<?= $cat['id'] ?>" <?= ($edit_bm['category_id'] ?? 0) == $cat['id'] ? 'selected' : '' ?>>
-              <?= h($cat['name']) ?>
-            </option>
-            <?php endforeach; ?>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Sort Order</label>
-          <input type="number" name="sort_order" class="form-control" value="<?= (int)($edit_bm['sort_order'] ?? 0) ?>" min="0">
-        </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select name="category_id" class="form-control" required>
+          <option value="">— Select —</option>
+          <?php foreach ($categories as $cat): ?>
+          <option value="<?= $cat['id'] ?>" <?= ($edit_bm['category_id'] ?? 0) == $cat['id'] ? 'selected' : '' ?>>
+            <?= h($cat['name']) ?>
+          </option>
+          <?php endforeach; ?>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Description <span style="font-weight:400;color:var(--text-muted)">(optional tooltip)</span></label>
@@ -158,10 +196,10 @@ include __DIR__ . '/_layout.php';
   <div class="table-wrap">
     <table>
       <thead><tr>
+        <th>Order</th>
         <th>Title</th>
         <th>URL</th>
         <th>Category</th>
-        <th>Order</th>
         <th>Actions</th>
       </tr></thead>
       <tbody>
@@ -171,7 +209,24 @@ include __DIR__ . '/_layout.php';
         </td></tr>
       <?php endif; ?>
       <?php foreach ($bookmarks as $bm): ?>
+      <?php $cid = $bm['category_id']; ?>
       <tr>
+        <td style="white-space:nowrap">
+          <form method="post" style="display:inline" action="bookmarks.php<?= $filter_cat ? '?cat=' . $filter_cat : '' ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="<?= $bm['id'] ?>">
+            <input type="hidden" name="direction" value="up">
+            <button type="submit" class="btn btn-sm btn-secondary" <?= $bm['id'] === $cat_bm_first[$cid] ? 'disabled' : '' ?> title="Move up within category">&#9650;</button>
+          </form>
+          <form method="post" style="display:inline" action="bookmarks.php<?= $filter_cat ? '?cat=' . $filter_cat : '' ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="move">
+            <input type="hidden" name="id" value="<?= $bm['id'] ?>">
+            <input type="hidden" name="direction" value="down">
+            <button type="submit" class="btn btn-sm btn-secondary" <?= $bm['id'] === $cat_bm_last[$cid] ? 'disabled' : '' ?> title="Move down within category">&#9660;</button>
+          </form>
+        </td>
         <td>
           <img src="https://www.google.com/s2/favicons?domain=<?= urlencode(parse_url($bm['url'], PHP_URL_HOST) ?: '') ?>&sz=16"
                width="16" height="16" style="vertical-align:middle;margin-right:.4rem;border-radius:2px" alt="" loading="lazy">
@@ -179,7 +234,6 @@ include __DIR__ . '/_layout.php';
         </td>
         <td><a href="<?= h($bm['url']) ?>" target="_blank" rel="noopener" style="font-size:.82rem;max-width:200px;display:inline-block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle" title="<?= h($bm['url']) ?>"><?= h($bm['url']) ?></a></td>
         <td><span class="color-dot" style="background:<?= h($bm['cat_color']) ?>"></span><?= h($bm['cat_name']) ?></td>
-        <td><?= (int)$bm['sort_order'] ?></td>
         <td style="white-space:nowrap">
           <a href="?action=edit&id=<?= $bm['id'] ?>" class="btn btn-secondary btn-sm">Edit</a>
           <form method="post" style="display:inline" onsubmit="return confirm('Delete this bookmark?')">

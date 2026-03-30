@@ -6,6 +6,8 @@
 
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/functions.php';
+require_once __DIR__ . '/../includes/portal_auth.php';
+portal_require_login_api();
 
 header('Content-Type: application/json; charset=utf-8');
 

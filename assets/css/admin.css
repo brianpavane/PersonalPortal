@@ -251,6 +251,36 @@ tr:hover td { background: var(--bg-elevated); }
 .alert-danger  { background: #2d1012; border: 1px solid var(--accent-red);   color: var(--accent-red);   }
 .alert-info    { background: #0c1f3f; border: 1px solid var(--accent-blue);  color: var(--accent-blue);  }
 
+/* ── Color Palette Picker ────────────────────────────────── */
+.color-palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-bottom: .25rem;
+}
+
+.color-swatch {
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+  transition: transform .1s, border-color .1s;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  border-color: #fff;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.45);
+  transform: scale(1.1);
+}
+
 /* ── Color Dot ───────────────────────────────────────────── */
 .color-dot {
   display: inline-block;
