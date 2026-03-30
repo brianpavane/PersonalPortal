@@ -103,8 +103,8 @@ migration file that is newer than your installed version (see table above).
 
 **MySQL CLI**:
 ```bash
-mysql -u DB_USER -p DB_NAME < docs/migrations/v1.3.0.sql
-mysql -u DB_USER -p DB_NAME < docs/migrations/v1.4.0.sql
+mysql -h DB_HOST -u DB_USER -p DB_NAME < docs/migrations/v1.3.0.sql
+mysql -h DB_HOST -u DB_USER -p DB_NAME < docs/migrations/v1.4.0.sql
 ```
 
 ### 4. Check config.php for new constants
@@ -185,7 +185,7 @@ If something goes wrong:
 
 ```bash
 # Restore database
-mysql -u DB_USER -p DB_NAME < backup_YYYYMMDD.sql
+mysql -h DB_HOST -u DB_USER -p DB_NAME < backup_YYYYMMDD.sql
 
 # Restore files via git
 git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
