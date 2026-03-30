@@ -67,9 +67,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+    // ── Weather Cities ────────────────────────────────────────────────────────
+    if ($section === 'weather') {
+        $cities = [];
+        for ($i = 1; $i <= 3; $i++) {
+            $name = mb_substr(trim($_POST['city_name_' . $i] ?? ''), 0, 100);
+            $lat  = (float)($_POST['city_lat_' . $i] ?? 0);
+            $lon  = (float)($_POST['city_lon_' . $i] ?? 0);
+            if (!$name || $lat < -90 || $lat > 90 || $lon < -180 || $lon > 180) continue;
+            $cities[] = ['name' => $name, 'lat' => round($lat, 4), 'lon' => round($lon, 4)];
+        }
+        $unit = ($_POST['weather_unit'] ?? 'fahrenheit') === 'celsius' ? 'celsius' : 'fahrenheit';
+        $db->prepare("REPLACE INTO portal_settings (setting_key,setting_value) VALUES ('weather_cities',?)")
+           ->execute([json_encode($cities)]);
+        $db->prepare("REPLACE INTO portal_settings (setting_key,setting_value) VALUES ('weather_unit',?)")
+           ->execute([$unit]);
+        // Bust weather cache
+        @unlink(CACHE_DIR . '/' . md5('weather_v1') . '.cache');
+        $msg = 'Weather cities saved.';
+    }
+
+    // ── Timezone Zones ────────────────────────────────────────────────────────
+    if ($section === 'timezones') {
+        $zones = [];
+        for ($i = 1; $i <= 6; $i++) {
+            $label = mb_substr(trim($_POST['tz_label_' . $i] ?? ''), 0, 60);
+            $tz    = mb_substr(trim($_POST['tz_zone_'  . $i] ?? ''), 0, 60);
+            // Validate IANA timezone name by attempting to create a DateTimeZone
+            if (!$label || !$tz) continue;
+            try {
+                new DateTimeZone($tz);
+            } catch (Exception $e) {
+                $errs[] = "Invalid timezone: " . htmlspecialchars($tz);
+                continue;
+            }
+            $zones[] = ['label' => $label, 'tz' => $tz];
+        }
+        if (!$errs) {
+            $db->prepare("REPLACE INTO portal_settings (setting_key,setting_value) VALUES ('timezone_zones',?)")
+               ->execute([json_encode($zones)]);
+            $msg = 'Timezone zones saved.';
+        }
+    }
+}
+
 // Load data
 $symbols = $db->query('SELECT * FROM stock_symbols ORDER BY sort_order')->fetchAll();
 $feeds   = $db->query('SELECT * FROM news_feeds ORDER BY sort_order, name')->fetchAll();
+
+// Load weather cities config
+$weather_cities_raw = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='weather_cities'")->fetchColumn() ?: '[]';
+$weather_cities     = json_decode($weather_cities_raw, true) ?: [];
+while (count($weather_cities) < 3) $weather_cities[] = ['name' => '', 'lat' => '', 'lon' => ''];
+$weather_unit       = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='weather_unit'")->fetchColumn() ?: 'fahrenheit';
+
+// Load timezone zones config
+$tz_zones_raw = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='timezone_zones'")->fetchColumn() ?: '[]';
+$tz_zones     = json_decode($tz_zones_raw, true) ?: [];
+while (count($tz_zones) < 6) $tz_zones[] = ['label' => '', 'tz' => ''];
 
 // Build textarea text
 $sym_text = implode("\n", array_map(fn($s) => $s['symbol'] . ($s['label'] ? '|' . $s['label'] : ''), $symbols));
@@ -174,5 +229,151 @@ include __DIR__ . '/_layout.php';
   </div>
 
 </div>
+
+<!-- Weather + Timezone in a grid -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start;margin-top:1.5rem">
+
+  <!-- Weather Cities -->
+  <div class="card">
+    <div class="card-header">&#127748; Weather Cities <small style="font-weight:400;color:var(--text-muted)">(up to 3)</small></div>
+    <div class="card-body">
+      <form method="post" id="weather-form">
+        <?= csrf_field() ?>
+        <input type="hidden" name="section" value="weather">
+
+        <div class="form-group" style="margin-bottom:.5rem">
+          <label class="form-label">Temperature Unit</label>
+          <label style="display:inline-flex;align-items:center;gap:.4rem;margin-right:1rem">
+            <input type="radio" name="weather_unit" value="fahrenheit" <?= $weather_unit !== 'celsius' ? 'checked' : '' ?>> °F
+          </label>
+          <label style="display:inline-flex;align-items:center;gap:.4rem">
+            <input type="radio" name="weather_unit" value="celsius" <?= $weather_unit === 'celsius' ? 'checked' : '' ?>> °C
+          </label>
+        </div>
+
+        <?php for ($i = 1; $i <= 3; $i++): ?>
+        <?php $c = $weather_cities[$i-1]; ?>
+        <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:.75rem;margin-bottom:.75rem">
+          <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:.5rem">
+            City <?= $i ?>
+            <button type="button" class="btn btn-sm btn-secondary"
+                    style="margin-left:.5rem;font-size:.7rem;padding:.15rem .4rem"
+                    onclick="geocodeCity(<?= $i ?>)" title="Auto-fill coordinates from city name">Locate &#128205;</button>
+          </div>
+          <div class="form-group" style="margin-bottom:.4rem">
+            <input type="text" id="city_name_<?= $i ?>" name="city_name_<?= $i ?>" class="form-control"
+                   value="<?= h((string)($c['name'] ?? '')) ?>" placeholder="e.g. New York" maxlength="100">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem">
+            <input type="number" id="city_lat_<?= $i ?>" name="city_lat_<?= $i ?>" class="form-control"
+                   value="<?= h((string)($c['lat'] ?? '')) ?>" placeholder="Latitude" step="0.0001" min="-90" max="90">
+            <input type="number" id="city_lon_<?= $i ?>" name="city_lon_<?= $i ?>" class="form-control"
+                   value="<?= h((string)($c['lon'] ?? '')) ?>" placeholder="Longitude" step="0.0001" min="-180" max="180">
+          </div>
+        </div>
+        <?php endfor; ?>
+
+        <div class="form-hint">
+          Click <strong>Locate</strong> to auto-fill coordinates, or enter them manually.
+          Find coordinates at <a href="https://www.latlong.net" target="_blank" rel="noopener">latlong.net</a>.
+        </div>
+        <button type="submit" class="btn btn-success" style="margin-top:.75rem">Save Weather</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Timezone Zones -->
+  <div class="card">
+    <div class="card-header">&#127758; World Clock Timezones <small style="font-weight:400;color:var(--text-muted)">(up to 6)</small></div>
+    <div class="card-body">
+      <form method="post">
+        <?= csrf_field() ?>
+        <input type="hidden" name="section" value="timezones">
+
+        <?php for ($i = 1; $i <= 6; $i++): ?>
+        <?php $z = $tz_zones[$i-1]; ?>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.4rem">
+          <input type="text" name="tz_label_<?= $i ?>" class="form-control"
+                 value="<?= h((string)($z['label'] ?? '')) ?>" placeholder="Label (e.g. London)" maxlength="60">
+          <input type="text" name="tz_zone_<?= $i ?>" class="form-control"
+                 value="<?= h((string)($z['tz'] ?? '')) ?>" placeholder="IANA TZ (e.g. Europe/London)"
+                 maxlength="60" list="tz-list">
+        </div>
+        <?php endfor; ?>
+
+        <datalist id="tz-list">
+          <option value="America/New_York">
+          <option value="America/Chicago">
+          <option value="America/Denver">
+          <option value="America/Phoenix">
+          <option value="America/Los_Angeles">
+          <option value="America/Anchorage">
+          <option value="America/Honolulu">
+          <option value="America/Toronto">
+          <option value="America/Vancouver">
+          <option value="America/Sao_Paulo">
+          <option value="America/Mexico_City">
+          <option value="Europe/London">
+          <option value="Europe/Paris">
+          <option value="Europe/Berlin">
+          <option value="Europe/Rome">
+          <option value="Europe/Madrid">
+          <option value="Europe/Amsterdam">
+          <option value="Europe/Zurich">
+          <option value="Europe/Stockholm">
+          <option value="Europe/Moscow">
+          <option value="Asia/Dubai">
+          <option value="Asia/Karachi">
+          <option value="Asia/Kolkata">
+          <option value="Asia/Dhaka">
+          <option value="Asia/Bangkok">
+          <option value="Asia/Singapore">
+          <option value="Asia/Shanghai">
+          <option value="Asia/Tokyo">
+          <option value="Asia/Seoul">
+          <option value="Australia/Perth">
+          <option value="Australia/Sydney">
+          <option value="Australia/Melbourne">
+          <option value="Pacific/Auckland">
+          <option value="Pacific/Honolulu">
+          <option value="UTC">
+        </datalist>
+
+        <div class="form-hint">Use IANA timezone names — type to autocomplete from the list above, or check <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank" rel="noopener">tz database</a>.</div>
+        <button type="submit" class="btn btn-success" style="margin-top:.75rem">Save Timezones</button>
+      </form>
+    </div>
+  </div>
+
+</div><!-- /weather+tz grid -->
+
+<script>
+// Auto-fill lat/lon from city name using Open-Meteo geocoding API
+async function geocodeCity(slot) {
+  const nameInput = document.getElementById('city_name_' + slot);
+  const latInput  = document.getElementById('city_lat_'  + slot);
+  const lonInput  = document.getElementById('city_lon_'  + slot);
+  const name = nameInput.value.trim();
+  if (!name) { alert('Enter a city name first.'); return; }
+
+  try {
+    const res  = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=1&language=en&format=json');
+    const data = await res.json();
+    const r    = data.results && data.results[0];
+    if (r) {
+      latInput.value = r.latitude.toFixed(4);
+      lonInput.value = r.longitude.toFixed(4);
+      // Update city name with full name if available
+      if (r.name && r.country_code) {
+        nameInput.value = r.name + (r.admin1 ? ', ' + r.admin1 : '') + ', ' + r.country_code.toUpperCase();
+      }
+    } else {
+      alert('City not found. Try a different spelling or enter coordinates manually.');
+    }
+  } catch(e) {
+    alert('Geocoding unavailable. Please enter coordinates manually.');
+  }
+}
+</script>
 
 <?php include __DIR__ . '/_layout_end.php'; ?>

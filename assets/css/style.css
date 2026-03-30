@@ -61,15 +61,6 @@ a:hover { text-decoration: underline; }
   letter-spacing: .02em;
 }
 
-.header-clock {
-  font-variant-numeric: tabular-nums;
-  font-size: .9rem;
-  color: var(--text-muted);
-}
-
-#clock-time { font-size: 1.2rem; font-weight: 600; color: var(--text-primary); }
-#clock-date { font-size: .8rem; color: var(--text-muted); margin-left: .5rem; }
-
 .header-actions a {
   font-size: .8rem;
   color: var(--text-muted);
@@ -332,6 +323,91 @@ a:hover { text-decoration: underline; }
   text-align: center;
   color: var(--text-muted);
 }
+
+/* ── Weather Widget ──────────────────────────────────────── */
+.weather-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: .5rem;
+  padding: .75rem;
+}
+
+.weather-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: .65rem .75rem;
+  text-align: center;
+}
+
+.weather-city {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin-bottom: .25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.weather-icon { font-size: 1.75rem; line-height: 1; margin: .25rem 0; }
+
+.weather-temp {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+}
+
+.weather-condition { font-size: .72rem; color: var(--text-muted); margin-top: .15rem; }
+
+.weather-details {
+  font-size: .7rem;
+  color: var(--text-muted);
+  margin-top: .3rem;
+  line-height: 1.5;
+}
+
+/* ── World Clock Widget ──────────────────────────────────── */
+#widget-clocks .widget-body { padding: .75rem; }
+
+.clocks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: .5rem;
+}
+
+.clock-card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  padding: .6rem .65rem;
+  text-align: center;
+}
+
+.clock-label {
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin-bottom: .2rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.clock-time {
+  font-size: 1.1rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary);
+  letter-spacing: .02em;
+}
+
+.clock-date { font-size: .68rem; color: var(--text-muted); margin-top: .1rem; }
 
 /* ── Notes Widget ────────────────────────────────────────── */
 .notes-grid {

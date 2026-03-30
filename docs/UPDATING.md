@@ -1,10 +1,48 @@
 # Updating PersonalPortal
 
-How to apply new versions without reinstalling from scratch.
+How to apply new versions without reinstalling from scratch, from **any** previous version.
 
 ---
 
-## Standard Update Process
+## Quick Upgrade (TL;DR)
+
+```bash
+# 1. Back up
+mysqldump -u DB_USER -p DB_NAME > backup_$(date +%Y%m%d).sql
+
+# 2. Pull new code
+cd /path/to/personalportal && git pull origin main
+
+# 3. Run ALL migration files that are newer than your current version (see table below)
+#    All migrations are idempotent — safe to re-run; running extras causes no harm.
+
+# 4. Clear the cache
+rm -f /path/to/personalportal/cache/*.cache
+
+# 5. Verify — open portal, check version in footer
+```
+
+---
+
+## Migration File Reference
+
+Every release publishes a migration file in `docs/migrations/`. Each file is **idempotent**
+(`CREATE TABLE IF NOT EXISTS`, `INSERT IGNORE`, etc.) — safe to run more than once.
+
+| From version | Run these migration files (in order) |
+|---|---|
+| Fresh install | `v1.0.0.sql` only (or use `install/`) |
+| v1.0.0 → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
+| v1.1.x → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
+| v1.2.x → latest | `v1.3.0.sql` → `v1.4.0.sql` |
+| v1.3.x → latest | `v1.4.0.sql` |
+| Already on latest | Nothing to run |
+
+**When in doubt:** run all migrations from `v1.0.0.sql` upward — it's safe.
+
+---
+
+## Detailed Steps
 
 ### 1. Back up first
 
@@ -25,68 +63,96 @@ cd /path/to/personalportal
 git pull origin main
 ```
 
-If you downloaded a ZIP manually, upload the new files via FTP/SFTP. **Do not overwrite:**
-- `config/config.php` — your local configuration
-- `cache/` — runtime cache (safe to delete if needed)
+If you downloaded a ZIP manually, upload the new files via FTP/SFTP.
 
-### 3. Run any migration SQL
+**Do not overwrite these files** (they contain your local configuration):
+- `config/config.php`
 
-Each version's migration lives in `docs/migrations/`. Run the relevant file(s)
-in your database client (phpMyAdmin, MySQL CLI, etc.):
+**Safe to delete** (auto-recreated at runtime):
+- `cache/` directory contents
 
-```sql
--- Example: upgrading to v1.3.0
-SOURCE /path/to/personalportal/docs/migrations/v1.3.0.sql;
-```
+### 3. Run migration SQL
 
-Or paste the contents into phpMyAdmin's SQL tab.
+Open phpMyAdmin or your MySQL client, select your database, then run each
+migration file that is newer than your installed version (see table above).
 
-Migrations are **idempotent** (`IF NOT EXISTS` / `INSERT IGNORE`) — safe to run
-more than once.
+**phpMyAdmin**: Database → SQL tab → paste contents → Go
 
-### 4. Clear the cache
-
+**MySQL CLI**:
 ```bash
-rm -f /path/to/personalportal/cache/*.cache
+mysql -u DB_USER -p DB_NAME < docs/migrations/v1.3.0.sql
+mysql -u DB_USER -p DB_NAME < docs/migrations/v1.4.0.sql
 ```
 
-Or visit **Admin → Settings** and click **Clear Cache** if available.
+### 4. Check config.php for new constants
 
-### 5. Verify
-
-Open the portal in your browser and confirm the version number in the footer
-matches the release you just deployed.
-
----
-
-## Version Migration Notes
-
-### v1.2.0 → v1.2.1
-- No database changes.
-- Schema parser fix for Dreamhost shared hosting (removed `SET time_zone`).
-- Config generator injection fix (use `var_export`).
-
-### v1.2.1 → v1.3.0
-- Run `docs/migrations/v1.3.0.sql` — adds `portal_users` and `portal_tokens` tables.
-- New files added: `includes/version.php`, `includes/portal_auth.php`,
-  `portal_login.php`, `portal_logout.php`, `admin/portal_users.php`,
-  `assets/js/admin.js`.
-- Portal access control is **disabled by default** after migration. Enable it in
-  **Admin → Portal Users** once you have created at least one portal user.
-
----
-
-## Config File Changes
-
-If a new version changes `config/config.php.example`, you may need to add new
-constants to your existing `config/config.php`. Always diff the example against
-yours after a major update:
+If a new version adds constants to `config/config.php`, you need to add them to
+your installed copy. Diff the example file against yours:
 
 ```bash
 diff config/config.php.example config/config.php
 ```
 
-Add any missing `define()` lines with appropriate values.
+Add any missing `define()` lines. Missing constants will cause PHP warnings.
+
+### 5. Clear the cache
+
+```bash
+rm -f /path/to/personalportal/cache/*.cache
+```
+
+Or visit **Admin → Settings** and clear relevant caches by re-saving (stock/news
+saves wipe their respective caches automatically).
+
+### 6. Verify the upgrade
+
+- Open the portal in your browser
+- Check the version number in the footer matches the release you deployed
+- Spot-check that bookmarks, notes, stocks, and news all load correctly
+- If you added new widgets (weather, world clock), configure them in Admin → Settings
+
+---
+
+## Version History & What Each Release Changes
+
+### v1.4.0
+- **No new tables.** Weather city config and timezone zones stored as JSON in `portal_settings`.
+- Stock ticker switched from Yahoo Finance v7 (deprecated, requires auth) to v8 chart endpoint.
+- New widgets: Weather (Open-Meteo, no API key) and World Clock (client-side, up to 6 zones).
+- Header clock removed; replaced by configurable World Clock widget.
+- Configure both in **Admin → Settings** (bottom two sections).
+- **After upgrading:** run `docs/migrations/v1.4.0.sql`, then visit Admin → Settings to configure
+  weather cities and timezone zones.
+
+### v1.3.1
+- Arrow-based (▲/▼) sort ordering for categories, notes, and bookmarks replaces manual number entry.
+- `Cache-Control` on auth-protected API endpoints corrected to `private` when portal auth is on.
+- No database changes.
+
+### v1.3.0
+- **New tables:** `portal_users`, `portal_tokens`.
+- New: separate portal user login (non-admin accounts), remember-me tokens (30-day).
+- New: 16-colour accent palette picker in admin.
+- New: version number displayed in portal footer and admin sidebar.
+- **After upgrading:** run `docs/migrations/v1.3.0.sql`, then visit Admin → Portal Users to
+  create portal user accounts (if you want to enable access control).
+
+### v1.2.1
+- Installer bug fix for Dreamhost shared hosting (`SET time_zone` privilege error).
+- Config file injection fix in installer.
+- No database changes.
+
+### v1.2.0
+- **No new tables.** TOTP secret stored in `portal_settings`.
+- New: TOTP-based two-factor authentication for admin login.
+- No database changes.
+
+### v1.1.0
+- Security hardening: CSRF on login, rate limiting, cache serialization fix, SSRF prevention.
+- No database changes.
+
+### v1.0.0
+- Initial release. Full schema in `docs/migrations/v1.0.0.sql`.
 
 ---
 
@@ -94,11 +160,23 @@ Add any missing `define()` lines with appropriate values.
 
 If something goes wrong:
 
-1. Restore your database backup:
-   ```bash
-   mysql -u DB_USER -p DB_NAME < backup_YYYYMMDD.sql
-   ```
-2. Restore your file backup or `git checkout` the previous tag:
-   ```bash
-   git checkout v1.2.1
-   ```
+```bash
+# Restore database
+mysql -u DB_USER -p DB_NAME < backup_YYYYMMDD.sql
+
+# Restore files via git
+git checkout v1.3.1   # or whichever tag you came from
+
+# Or restore from file archive
+tar xzf personalportal_backup_YYYYMMDD.tar.gz -C /path/to/
+```
+
+---
+
+## Dreamhost-specific Notes
+
+- Run migrations via phpMyAdmin (use the SQL tab).
+- The `install/index.php` installer can also be re-run to apply the latest `install/schema.sql`
+  (which is cumulative), but you **must** re-enter your config or it will overwrite `config.php`.
+  Prefer running individual migration files instead.
+- Clear PHP's opcode cache if you have one enabled: `opcache_reset()` or restart the PHP process.

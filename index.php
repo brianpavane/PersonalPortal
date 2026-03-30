@@ -14,6 +14,22 @@ date_default_timezone_set(TIMEZONE);
 portal_require_login();
 
 $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
+
+// Load timezone zones config to embed in page (avoids extra API call)
+try {
+    $tz_raw   = db()->query(
+        "SELECT setting_value FROM portal_settings WHERE setting_key='timezone_zones'"
+    )->fetchColumn();
+    $tz_zones = [];
+    if ($tz_raw) {
+        $decoded = json_decode($tz_raw, true);
+        if (is_array($decoded)) {
+            $tz_zones = array_slice($decoded, 0, 6);
+        }
+    }
+} catch (Throwable $e) {
+    $tz_zones = [];
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -30,10 +46,6 @@ $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
 <!-- ── Header ─────────────────────────────────────────────── -->
 <header class="portal-header">
   <div class="brand"><?= h(APP_NAME) ?></div>
-  <div class="header-clock">
-    <span id="clock-time">--:--:--</span>
-    <span id="clock-date"></span>
-  </div>
   <div class="header-actions">
     <a href="admin/" title="Admin Panel">&#9881; Admin</a>
     <?php if (portal_auth_enabled() && !is_logged_in()): ?>
@@ -52,7 +64,7 @@ $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
 <!-- ── Main Grid ──────────────────────────────────────────── -->
 <div class="portal-grid">
 
-  <!-- Left: Bookmarks + Notes -->
+  <!-- Left: Bookmarks + World Clock + Notes -->
   <div class="main-area">
 
     <!-- Bookmarks Widget -->
@@ -68,6 +80,21 @@ $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
         <div class="stock-loading"><span class="spinner"></span></div>
       </div>
     </div>
+
+    <!-- World Clock Widget -->
+    <?php if (!empty($tz_zones)): ?>
+    <div class="widget" id="widget-clocks">
+      <div class="widget-header">
+        <span class="widget-title">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71zm4.5 4.5a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0"/></svg>
+          World Clock
+        </span>
+      </div>
+      <div class="widget-body">
+        <div class="clocks-grid" id="clocks-container"></div>
+      </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Notes Widget -->
     <div class="widget" id="widget-notes">
@@ -85,7 +112,7 @@ $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
 
   </div><!-- /main-area -->
 
-  <!-- Right Sidebar: Stocks + News -->
+  <!-- Right Sidebar: Stocks + Weather + News -->
   <div class="sidebar">
 
     <!-- Stocks Widget -->
@@ -98,6 +125,20 @@ $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
         <button class="refresh-btn" id="refresh-stocks" title="Refresh">&#8635;</button>
       </div>
       <div id="stocks-container">
+        <div class="stock-loading"><span class="spinner"></span></div>
+      </div>
+    </div>
+
+    <!-- Weather Widget -->
+    <div class="widget" id="widget-weather">
+      <div class="widget-header">
+        <span class="widget-title">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M.036 3.314a.5.5 0 0 1 .65-.278l1.757.703a1.5 1.5 0 0 1 1.879-1.085l3.1.62L8.5 3a3 3 0 0 1 2.674 1.634l.853-.271a2 2 0 0 1 2.494 1.992l.147 1.35a2.5 2.5 0 0 1-.981 2.218l-1.862 1.364a2 2 0 0 1-1.174.386H2.5a2 2 0 0 1-1.9-1.37L.036 3.95a.5.5 0 0 1 0-.636z"/></svg>
+          Weather
+        </span>
+        <button class="refresh-btn" id="refresh-weather" title="Refresh">&#8635;</button>
+      </div>
+      <div id="weather-container">
         <div class="stock-loading"><span class="spinner"></span></div>
       </div>
     </div>
@@ -128,6 +169,10 @@ $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
   <?php endif; ?>
 </footer>
 
+<!-- Timezone config embedded for client-side world clock (no extra HTTP round-trip) -->
+<script>
+window.PORTAL_TIMEZONES = <?= json_encode(array_values($tz_zones), JSON_UNESCAPED_UNICODE) ?>;
+</script>
 <script src="assets/js/portal.js"></script>
 </body>
 </html>

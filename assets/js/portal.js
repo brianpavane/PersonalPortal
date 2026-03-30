@@ -2,27 +2,43 @@
  * PersonalPortal — Main Frontend Script
  */
 
-/* ── Clock ─────────────────────────────────────────────── */
-(function initClock() {
-  const timeEl = document.getElementById('clock-time');
-  const dateEl = document.getElementById('clock-date');
-  if (!timeEl) return;
+/* ── World Clock ────────────────────────────────────────────── */
+(function initClocks() {
+  const zones     = window.PORTAL_TIMEZONES || [];
+  const container = document.getElementById('clocks-container');
+  if (!container || !zones.length) return;
 
-  function tick() {
+  function renderClocks() {
     const now = new Date();
-    timeEl.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    if (dateEl) {
-      dateEl.textContent = now.toLocaleDateString([], {
-        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
-      });
-    }
+    container.innerHTML = zones.map(z => {
+      if (!z.tz || !z.label) return '';
+      try {
+        const timeStr = new Intl.DateTimeFormat('en-US', {
+          timeZone: z.tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        }).format(now);
+        const dateStr = new Intl.DateTimeFormat('en-US', {
+          timeZone: z.tz, weekday: 'short', month: 'short', day: 'numeric'
+        }).format(now);
+        return `<div class="clock-card">
+          <div class="clock-label">${escHtml(z.label)}</div>
+          <div class="clock-time">${escHtml(timeStr)}</div>
+          <div class="clock-date">${escHtml(dateStr)}</div>
+        </div>`;
+      } catch (e) {
+        return `<div class="clock-card">
+          <div class="clock-label">${escHtml(z.label)}</div>
+          <div class="clock-time" style="color:var(--accent-red);font-size:.8rem">Invalid TZ</div>
+        </div>`;
+      }
+    }).join('');
   }
-  tick();
-  setInterval(tick, 1000);
+
+  renderClocks();
+  setInterval(renderClocks, 1000);
 })();
 
 
-/* ── Bookmarks ─────────────────────────────────────────── */
+/* ── Bookmarks ─────────────────────────────────────────────── */
 (function initBookmarks() {
   const container = document.getElementById('bookmarks-container');
   if (!container) return;
@@ -31,6 +47,7 @@
     container.innerHTML = '<div class="stock-loading"><span class="spinner"></span> Loading bookmarks…</div>';
     try {
       const res  = await fetch('api/bookmarks.php');
+      if (!res.ok) { container.innerHTML = '<div class="stock-error">Auth required. <a href="portal_login.php">Sign in</a>.</div>'; return; }
       const cats = await res.json();
       renderBookmarks(cats);
     } catch (e) {
@@ -71,32 +88,42 @@
 })();
 
 
-/* ── Stocks ─────────────────────────────────────────────── */
+/* ── Stocks ─────────────────────────────────────────────────── */
 (function initStocks() {
   const container = document.getElementById('stocks-container');
   const tape      = document.getElementById('ticker-inner');
   if (!container) return;
 
-  let interval = null;
-
   async function loadStocks() {
     try {
-      const res    = await fetch('api/stocks.php');
-      const quotes = await res.json();
-      renderStocks(quotes);
+      const res  = await fetch('api/stocks.php');
+      if (!res.ok) { container.innerHTML = '<div class="stock-error">Auth required.</div>'; return; }
+      const data = await res.json();
+
+      // New API returns {quotes: [...], no_symbols: bool}
+      // Handle both old array format and new object format
+      const quotes     = Array.isArray(data) ? data : (data.quotes || []);
+      const no_symbols = Array.isArray(data) ? false : (data.no_symbols === true);
+
+      renderStocks(quotes, no_symbols);
       if (tape) renderTicker(quotes);
     } catch (e) {
       container.innerHTML = '<div class="stock-error">Stock data unavailable.</div>';
+      if (tape) tape.innerHTML = '<span class="ticker-item" style="color:var(--text-muted)">Market data unavailable</span>';
     }
   }
 
-  function renderStocks(quotes) {
-    if (!quotes.length) {
+  function renderStocks(quotes, no_symbols) {
+    if (no_symbols) {
       container.innerHTML = '<div class="stock-loading">No symbols configured. <a href="admin/settings.php">Add in Admin</a>.</div>';
       return;
     }
+    if (!quotes.length) {
+      container.innerHTML = '<div class="stock-loading">Market data unavailable — check back shortly.</div>';
+      return;
+    }
     container.innerHTML = quotes.map(q => `
-      <div class="stock-row" title="Open: $${q.open}  High: $${q.high}  Low: $${q.low}  Prev Close: $${q.prevClose}">
+      <div class="stock-row" title="Open: $${q.open?.toFixed(2)}  High: $${q.high?.toFixed(2)}  Low: $${q.low?.toFixed(2)}  Prev Close: $${q.prevClose?.toFixed(2)}">
         <span class="stock-symbol">${escHtml(q.symbol)}</span>
         <span class="stock-name">${escHtml(q.name)}</span>
         <span class="stock-price">$${q.price.toFixed(2)}</span>
@@ -105,19 +132,69 @@
   }
 
   function renderTicker(quotes) {
+    if (!quotes.length) return;
     tape.innerHTML = quotes.map(q =>
       `<span class="ticker-item"><span class="ts">${escHtml(q.symbol)}</span> $${q.price.toFixed(2)} <span class="${q.direction}">${q.change >= 0 ? '▲' : '▼'} ${Math.abs(q.changePct).toFixed(2)}%</span></span>`
     ).join('');
   }
 
   loadStocks();
-  // Refresh every 5 minutes
-  interval = setInterval(loadStocks, 5 * 60 * 1000);
+  setInterval(loadStocks, 5 * 60 * 1000);
   document.getElementById('refresh-stocks')?.addEventListener('click', loadStocks);
 })();
 
 
-/* ── News ───────────────────────────────────────────────── */
+/* ── Weather ────────────────────────────────────────────────── */
+(function initWeather() {
+  const container = document.getElementById('weather-container');
+  if (!container) return;
+
+  async function loadWeather() {
+    container.innerHTML = '<div class="stock-loading"><span class="spinner"></span></div>';
+    try {
+      const res   = await fetch('api/weather.php');
+      if (!res.ok) { container.innerHTML = '<div class="stock-loading">Auth required.</div>'; return; }
+      const items = await res.json();
+      renderWeather(items);
+    } catch (e) {
+      container.innerHTML = '<div class="stock-error">Weather data unavailable.</div>';
+    }
+  }
+
+  function renderWeather(items) {
+    if (!items.length) {
+      container.innerHTML = '<div class="stock-loading">No cities configured. <a href="admin/settings.php">Add in Admin</a>.</div>';
+      return;
+    }
+    container.innerHTML = '<div class="weather-grid">' + items.map(city => {
+      if (city.error) {
+        return `<div class="weather-card">
+          <div class="weather-city">${escHtml(city.name)}</div>
+          <div class="weather-icon">⚠️</div>
+          <div class="weather-condition" style="color:var(--accent-red)">Unavailable</div>
+        </div>`;
+      }
+      return `<div class="weather-card">
+        <div class="weather-city">${escHtml(city.name)}</div>
+        <div class="weather-icon">${city.icon}</div>
+        <div class="weather-temp">${city.temp}${escHtml(city.unit)}</div>
+        <div class="weather-condition">${escHtml(city.condition)}</div>
+        <div class="weather-details">
+          Feels ${city.feels_like}${escHtml(city.unit)} &bull;
+          ${city.humidity}% RH &bull;
+          ${city.wind} mph wind
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  loadWeather();
+  setInterval(loadWeather, 15 * 60 * 1000); // refresh every 15 min
+  document.getElementById('refresh-weather')?.addEventListener('click', loadWeather);
+})();
+
+
+/* ── News ───────────────────────────────────────────────────── */
 (function initNews() {
   const container = document.getElementById('news-container');
   if (!container) return;
@@ -126,6 +203,7 @@
     container.innerHTML = '<div class="news-loading"><span class="spinner"></span> Loading news…</div>';
     try {
       const res   = await fetch('api/news.php?limit=30');
+      if (!res.ok) { container.innerHTML = '<div class="news-loading">Auth required.</div>'; return; }
       const items = await res.json();
       renderNews(items);
     } catch (e) {
@@ -153,13 +231,12 @@
   }
 
   loadNews();
-  // Refresh every 10 minutes
   setInterval(loadNews, 10 * 60 * 1000);
   document.getElementById('refresh-news')?.addEventListener('click', loadNews);
 })();
 
 
-/* ── Notes ──────────────────────────────────────────────── */
+/* ── Notes ──────────────────────────────────────────────────── */
 (function initNotes() {
   const container = document.getElementById('notes-container');
   if (!container) return;
@@ -167,6 +244,7 @@
   async function loadNotes() {
     try {
       const res   = await fetch('api/notes.php');
+      if (!res.ok) { container.innerHTML = '<p style="color:var(--text-muted)">Auth required.</p>'; return; }
       const notes = await res.json();
       renderNotes(notes);
     } catch (e) {
@@ -194,7 +272,7 @@
 })();
 
 
-/* ── Utilities ──────────────────────────────────────────── */
+/* ── Utilities ──────────────────────────────────────────────── */
 function escHtml(str) {
   const d = document.createElement('div');
   d.textContent = String(str ?? '');
