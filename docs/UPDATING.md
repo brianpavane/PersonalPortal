@@ -39,8 +39,8 @@ Every release publishes a migration file in `docs/migrations/`. Each file is **i
 | v1.0.0 → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
 | v1.1.x → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
 | v1.2.x → latest | `v1.3.0.sql` → `v1.4.0.sql` |
-| v1.3.x → latest | `v1.4.0.sql` |
-| v1.4.x → latest | Nothing to run (no DB changes) |
+| v1.3.x → latest | `v1.4.0.sql` → `v1.4.5.sql` |
+| v1.4.x → latest | `v1.4.5.sql` |
 | Already on latest | Nothing to run |
 
 **When in doubt:** run all migrations from `v1.0.0.sql` upward — it's safe.
@@ -138,6 +138,11 @@ saves wipe their respective caches automatically).
 ---
 
 ## Version History & What Each Release Changes
+
+### v1.4.5
+- Weather widget now supports up to **6 cities** (was 3). Existing cities are preserved.
+- New **Stock Display Mode** setting in Admin → Settings → Stock Symbols: choose *Ticker bar only* (default), *Widget only*, or *Both*. Run `docs/migrations/v1.4.5.sql` to seed the default.
+- No new database tables; one new `portal_settings` key: `stock_display_mode`.
 
 ### v1.4.4
 - Weather Locate button now works: geocoding is proxied through `admin/geocode.php` server-side instead of calling Nominatim directly from the browser (browser cross-origin requests were being blocked).

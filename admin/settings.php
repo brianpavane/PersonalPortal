@@ -26,6 +26,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $sym = strtoupper(preg_replace('/[^A-Z0-9.\-^]/', '', $sym));
             if ($sym) $stmt->execute([$sym, trim($label), $i]);
         }
+        // Save display mode preference
+        $stock_display = in_array($_POST['stock_display'] ?? '', ['ticker','widget','both'], true)
+            ? $_POST['stock_display'] : 'ticker';
+        $db->prepare("REPLACE INTO portal_settings (setting_key,setting_value) VALUES ('stock_display_mode',?)")
+           ->execute([$stock_display]);
         $msg = 'Stock symbols saved.';
     }
 
@@ -69,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ── Weather Cities ────────────────────────────────────────────────────────
     if ($section === 'weather') {
         $cities = [];
-        for ($i = 1; $i <= 3; $i++) {
+        for ($i = 1; $i <= 6; $i++) {
             $name = mb_substr(trim($_POST['city_name_' . $i] ?? ''), 0, 100);
             $lat  = (float)($_POST['city_lat_' . $i] ?? 0);
             $lon  = (float)($_POST['city_lon_' . $i] ?? 0);
@@ -117,13 +122,16 @@ $feeds   = $db->query('SELECT * FROM news_feeds ORDER BY sort_order, name')->fet
 // Load weather cities config
 $weather_cities_raw = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='weather_cities'")->fetchColumn() ?: '[]';
 $weather_cities     = json_decode($weather_cities_raw, true) ?: [];
-while (count($weather_cities) < 3) $weather_cities[] = ['name' => '', 'lat' => '', 'lon' => ''];
+while (count($weather_cities) < 6) $weather_cities[] = ['name' => '', 'lat' => '', 'lon' => ''];
 $weather_unit       = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='weather_unit'")->fetchColumn() ?: 'fahrenheit';
 
 // Load timezone zones config
 $tz_zones_raw = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='timezone_zones'")->fetchColumn() ?: '[]';
 $tz_zones     = json_decode($tz_zones_raw, true) ?: [];
 while (count($tz_zones) < 10) $tz_zones[] = ['label' => '', 'tz' => ''];
+
+// Load stock display mode
+$stock_display = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='stock_display_mode'")->fetchColumn() ?: 'ticker';
 
 // Build textarea text
 $sym_text = implode("\n", array_map(fn($s) => $s['symbol'] . ($s['label'] ? '|' . $s['label'] : ''), $symbols));
@@ -154,6 +162,23 @@ include __DIR__ . '/_layout.php';
           <textarea name="symbols" class="form-control" rows="10" style="font-family:monospace"
                     placeholder="AAPL|Apple&#10;MSFT|Microsoft&#10;SPY"><?= h($sym_text) ?></textarea>
           <div class="form-hint">Format: <code>SYMBOL</code> or <code>SYMBOL|Label</code> — e.g. <code>AAPL|Apple</code></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Display Mode</label>
+          <div>
+            <label style="display:inline-flex;align-items:center;gap:.4rem;margin-right:1.25rem">
+              <input type="radio" name="stock_display" value="ticker" <?= $stock_display === 'ticker' ? 'checked' : '' ?>>
+              Ticker bar only
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:.4rem;margin-right:1.25rem">
+              <input type="radio" name="stock_display" value="widget" <?= $stock_display === 'widget' ? 'checked' : '' ?>>
+              Widget only
+            </label>
+            <label style="display:inline-flex;align-items:center;gap:.4rem">
+              <input type="radio" name="stock_display" value="both" <?= $stock_display === 'both' ? 'checked' : '' ?>>
+              Both
+            </label>
+          </div>
         </div>
         <button type="submit" class="btn btn-success">Save Symbols</button>
       </form>
@@ -234,7 +259,7 @@ include __DIR__ . '/_layout.php';
 
   <!-- Weather Cities -->
   <div class="card">
-    <div class="card-header">&#127748; Weather Cities <small style="font-weight:400;color:var(--text-muted)">(up to 3)</small></div>
+    <div class="card-header">&#127748; Weather Cities <small style="font-weight:400;color:var(--text-muted)">(up to 6)</small></div>
     <div class="card-body">
       <form method="post" id="weather-form">
         <?= csrf_field() ?>
@@ -250,7 +275,7 @@ include __DIR__ . '/_layout.php';
           </label>
         </div>
 
-        <?php for ($i = 1; $i <= 3; $i++): ?>
+        <?php for ($i = 1; $i <= 6; $i++): ?>
         <?php $c = $weather_cities[$i-1]; ?>
         <div style="border:1px solid var(--border-subtle);border-radius:6px;padding:.75rem;margin-bottom:.75rem">
           <div style="font-size:.75rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:.5rem">

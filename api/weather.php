@@ -2,7 +2,7 @@
 /**
  * Weather API — fetches current conditions via Open-Meteo (no API key required).
  * GET /api/weather.php
- * Returns up to 3 city objects from portal_settings > weather_cities config.
+ * Returns up to 6 city objects from portal_settings > weather_cities config.
  */
 
 require_once __DIR__ . '/../includes/db.php';
@@ -45,7 +45,7 @@ $unit_sym = $unit === 'celsius' ? '°C' : '°F';
 
 $results = [];
 
-foreach (array_slice($cities, 0, 3) as $city) {
+foreach (array_slice($cities, 0, 6) as $city) {
     $name = mb_substr(trim((string)($city['name'] ?? '')), 0, 100);
     $lat  = (float)($city['lat'] ?? 0);
     $lon  = (float)($city['lon'] ?? 0);

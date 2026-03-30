@@ -15,6 +15,15 @@ portal_require_login();
 
 $portal_user = $_SESSION['portal_user'] ?? ($_SESSION['admin_user'] ?? null);
 
+// Load stock display mode
+try {
+    $stock_display = db()->query(
+        "SELECT setting_value FROM portal_settings WHERE setting_key='stock_display_mode'"
+    )->fetchColumn() ?: 'ticker';
+} catch (Throwable $e) {
+    $stock_display = 'ticker';
+}
+
 // Load timezone zones config to embed in page (avoids extra API call)
 try {
     $tz_raw   = db()->query(
@@ -24,7 +33,7 @@ try {
     if ($tz_raw) {
         $decoded = json_decode($tz_raw, true);
         if (is_array($decoded)) {
-            $tz_zones = array_slice($decoded, 0, 6);
+            $tz_zones = array_slice($decoded, 0, 10);
         }
     }
 } catch (Throwable $e) {
@@ -55,11 +64,13 @@ try {
 </header>
 
 <!-- ── Ticker Tape ─────────────────────────────────────────── -->
+<?php if ($stock_display !== 'widget'): ?>
 <div class="ticker-tape" id="ticker-tape" aria-hidden="true">
   <div class="ticker-inner" id="ticker-inner">
     <span class="ticker-item" style="color:var(--text-muted)">Loading stock data…</span>
   </div>
 </div>
+<?php endif; ?>
 
 <!-- ── Main Grid ──────────────────────────────────────────── -->
 <div class="portal-grid">
@@ -116,6 +127,7 @@ try {
   <div class="sidebar">
 
     <!-- Stocks Widget -->
+    <?php if ($stock_display !== 'ticker'): ?>
     <div class="widget" id="widget-stocks">
       <div class="widget-header">
         <span class="widget-title">
@@ -128,6 +140,7 @@ try {
         <div class="stock-loading"><span class="spinner"></span></div>
       </div>
     </div>
+    <?php endif; ?>
 
     <!-- Weather Widget -->
     <div class="widget" id="widget-weather">

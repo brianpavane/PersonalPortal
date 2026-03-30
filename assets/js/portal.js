@@ -92,24 +92,27 @@
 (function initStocks() {
   const container = document.getElementById('stocks-container');
   const tape      = document.getElementById('ticker-inner');
-  if (!container) return;
+  if (!container && !tape) return;
 
   async function loadStocks() {
     try {
       const res  = await fetch('api/stocks.php');
-      if (!res.ok) { container.innerHTML = '<div class="stock-error">Auth required.</div>'; return; }
+      if (!res.ok) {
+        if (container) container.innerHTML = '<div class="stock-error">Auth required.</div>';
+        return;
+      }
       const data = await res.json();
 
-      // New API returns {quotes: [...], no_symbols: bool}
+      // API returns {quotes: [...], no_symbols: bool}
       // Handle both old array format and new object format
       const quotes     = Array.isArray(data) ? data : (data.quotes || []);
       const no_symbols = Array.isArray(data) ? false : (data.no_symbols === true);
 
-      renderStocks(quotes, no_symbols);
-      if (tape) renderTicker(quotes);
+      if (container) renderStocks(quotes, no_symbols);
+      if (tape)      renderTicker(quotes);
     } catch (e) {
-      container.innerHTML = '<div class="stock-error">Stock data unavailable.</div>';
-      if (tape) tape.innerHTML = '<span class="ticker-item" style="color:var(--text-muted)">Market data unavailable</span>';
+      if (container) container.innerHTML = '<div class="stock-error">Stock data unavailable.</div>';
+      if (tape)      tape.innerHTML = '<span class="ticker-item" style="color:var(--text-muted)">Market data unavailable</span>';
     }
   }
 

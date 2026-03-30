@@ -15,6 +15,7 @@
  *   1.4.2  2026-03-30  Timezones up to 10; city↔TZ auto-fill; weather geocode via Nominatim (zip support)
  *   1.4.3  2026-03-30  Fix stocks API: crumb auth for Yahoo Finance; PHP 7.4 compat; output buffering
  *   1.4.4  2026-03-30  Fix weather Locate (server-side geocode proxy); add Dashboard link to admin sidebar
+ *   1.4.5  2026-03-30  Weather up to 6 cities; stock display mode setting (ticker/widget/both)
  */
-define('APP_VERSION',      '1.4.4');
+define('APP_VERSION',      '1.4.5');
 define('APP_VERSION_DATE', '2026-03-30');
