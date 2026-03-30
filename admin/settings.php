@@ -489,7 +489,7 @@ function tzZoneChanged(i) {
   if (label && !labelEl.value.trim()) labelEl.value = label;
 }
 
-// Geocode city name or zip code using Nominatim (OpenStreetMap)
+// Geocode city name or zip code via server-side proxy (avoids browser CORS/CSP limits)
 async function geocodeCity(slot) {
   const nameInput = document.getElementById('city_name_' + slot);
   const latInput  = document.getElementById('city_lat_'  + slot);
@@ -498,26 +498,17 @@ async function geocodeCity(slot) {
   if (!query) { alert('Enter a city name or zip code first.'); return; }
 
   try {
-    const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
-              + '&format=json&limit=1&addressdetails=1';
-    const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    const res  = await fetch('geocode.php?q=' + encodeURIComponent(query));
     const data = await res.json();
-    const r    = data && data[0];
-    if (r) {
-      latInput.value = parseFloat(r.lat).toFixed(4);
-      lonInput.value = parseFloat(r.lon).toFixed(4);
-      // Build a tidy display name: city + state/region + country code
-      const a = r.address || {};
-      const city    = a.city || a.town || a.village || a.county || '';
-      const region  = a.state || '';
-      const country = a.country_code ? a.country_code.toUpperCase() : '';
-      const parts   = [city, region, country].filter(Boolean);
-      if (parts.length) nameInput.value = parts.join(', ');
+    if (data.error) {
+      alert(data.error + ' Try a different spelling or enter coordinates manually.');
     } else {
-      alert('Location not found. Try a different city name, zip/postal code, or enter coordinates manually.');
+      latInput.value = data.lat;
+      lonInput.value = data.lon;
+      if (data.display) nameInput.value = data.display;
     }
   } catch(e) {
-    alert('Geocoding unavailable. Please enter coordinates manually.');
+    alert('Locate failed. Please enter coordinates manually.');
   }
 }
 </script>

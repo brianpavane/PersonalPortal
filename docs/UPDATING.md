@@ -139,6 +139,11 @@ saves wipe their respective caches automatically).
 
 ## Version History & What Each Release Changes
 
+### v1.4.4
+- Weather Locate button now works: geocoding is proxied through `admin/geocode.php` server-side instead of calling Nominatim directly from the browser (browser cross-origin requests were being blocked).
+- Admin sidebar now has a **Dashboard** link at the top of navigation.
+- No database changes.
+
 ### v1.4.3
 - Fix stock widget "Stock data unavailable" error: Yahoo Finance v8 now requires a crumb cookie; the API now fetches a session crumb automatically before each batch of quotes.
 - Switched from `query1` to `query2` Yahoo Finance host (more permissive).
