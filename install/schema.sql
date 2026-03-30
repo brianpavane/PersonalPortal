@@ -2,7 +2,6 @@
 -- Run this during installation via install/index.php
 
 SET NAMES utf8mb4;
-SET time_zone = '+00:00';
 
 -- ── Settings ────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS `portal_settings` (

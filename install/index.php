@@ -85,16 +85,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $step === 2) {
         $sql_raw    = file_get_contents(__DIR__ . '/schema.sql');
         $statements = array_filter(array_map('trim', explode(';', $sql_raw)));
         foreach ($statements as $stmt) {
-            if ($stmt && !preg_match('/^--/', $stmt) && !preg_match('/^SET\s+NAMES/i', $stmt)) {
-                try {
-                    $pdo->exec($stmt);
-                } catch (PDOException $e) {
-                    // 42S01 = table already exists (safe to ignore)
-                    if ((string)$e->getCode() !== '42S01') {
-                        $errors[] = 'Schema import error — check DB user privileges.';
-                        break;
-                    }
-                }
+            // Strip ALL single-line comment lines (-- ...) from the statement.
+            // Without this, a statement that starts with a comment block
+            // (e.g. "-- table name\nCREATE TABLE ...") would be silently
+            // skipped by the leading-comment check, dropping every CREATE TABLE.
+            $clean = trim(preg_replace('/^\s*--[^\n]*$/m', '', $stmt));
+
+            if (!$clean) continue;
+
+            // Skip SET statements that require elevated DB privileges
+            // (SET NAMES is handled by the DSN charset; SET time_zone requires SUPER)
+            if (preg_match('/^SET\s+(NAMES|time_zone|CHARACTER\s+SET)/i', $clean)) continue;
+
+            try {
+                $pdo->exec($clean);
+            } catch (PDOException $e) {
+                $sqlstate = (string)$e->getCode();
+                // 42S01 = table already exists — safe to ignore on re-install
+                if ($sqlstate === '42S01') continue;
+                // Surface the real MySQL error so it's diagnosable
+                $errors[] = 'Schema import error: ' . $e->getMessage();
+                break;
             }
         }
     }
