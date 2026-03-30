@@ -1,5 +1,7 @@
 # Updating PersonalPortal
 
+**Repository:** https://github.com/brianpavane/PersonalPortal
+
 How to apply new versions without reinstalling from scratch, from **any** previous version.
 
 ---
@@ -11,7 +13,9 @@ How to apply new versions without reinstalling from scratch, from **any** previo
 mysqldump -u DB_USER -p DB_NAME > backup_$(date +%Y%m%d).sql
 
 # 2. Pull new code
-cd /path/to/personalportal && git pull origin main
+cd /path/to/personalportal
+git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
+git pull origin main
 
 # 3. Run ALL migration files that are newer than your current version (see table below)
 #    All migrations are idempotent — safe to re-run; running extras causes no harm.
@@ -60,10 +64,24 @@ If you installed via git:
 
 ```bash
 cd /path/to/personalportal
+# Confirm your remote points to the correct repo
+git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
 git pull origin main
 ```
 
-If you downloaded a ZIP manually, upload the new files via FTP/SFTP.
+If you installed without git (first time setup):
+
+```bash
+cd /path/to/personalportal
+git init
+git remote add origin https://github.com/brianpavane/PersonalPortal.git
+git fetch origin main
+git checkout main
+```
+
+If you downloaded a ZIP manually, download the latest from
+https://github.com/brianpavane/PersonalPortal/archive/refs/heads/main.zip
+and upload the new files via FTP/SFTP.
 
 **Do not overwrite these files** (they contain your local configuration):
 - `config/config.php`
@@ -72,6 +90,9 @@ If you downloaded a ZIP manually, upload the new files via FTP/SFTP.
 - `cache/` directory contents
 
 ### 3. Run migration SQL
+
+Migration files live at:
+https://github.com/brianpavane/PersonalPortal/tree/main/docs/migrations
 
 Open phpMyAdmin or your MySQL client, select your database, then run each
 migration file that is newer than your installed version (see table above).
@@ -165,7 +186,8 @@ If something goes wrong:
 mysql -u DB_USER -p DB_NAME < backup_YYYYMMDD.sql
 
 # Restore files via git
-git checkout v1.3.1   # or whichever tag you came from
+git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
+git checkout v1.3.1   # or whichever tag/commit you came from
 
 # Or restore from file archive
 tar xzf personalportal_backup_YYYYMMDD.tar.gz -C /path/to/
