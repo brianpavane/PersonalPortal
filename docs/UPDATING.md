@@ -40,7 +40,7 @@ Every release publishes a migration file in `docs/migrations/`. Each file is **i
 | v1.1.x → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
 | v1.2.x → latest | `v1.3.0.sql` → `v1.4.0.sql` |
 | v1.3.x → latest | `v1.4.0.sql` |
-| v1.4.0 → latest | Nothing to run (no DB changes) |
+| v1.4.x → latest | Nothing to run (no DB changes) |
 | Already on latest | Nothing to run |
 
 **When in doubt:** run all migrations from `v1.0.0.sql` upward — it's safe.
@@ -138,6 +138,12 @@ saves wipe their respective caches automatically).
 ---
 
 ## Version History & What Each Release Changes
+
+### v1.4.2
+- World Clock now supports up to 10 timezones (was 6).
+- Typing a city name in the Label field auto-fills the IANA timezone; typing an IANA timezone auto-fills the label. San Francisco, Mumbai, and Bangalore are included in the city lookup.
+- Weather Locate button now uses Nominatim (OpenStreetMap) — supports city names **and** zip/postal codes.
+- No database changes.
 
 ### v1.4.1
 - Bug fix: `admin/settings.php` returned HTTP 500 on every load due to misplaced closing brace that placed the Weather and Timezone POST handlers outside the `if (POST)` block.

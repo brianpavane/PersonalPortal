@@ -89,7 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ── Timezone Zones ────────────────────────────────────────────────────────
     if ($section === 'timezones') {
         $zones = [];
-        for ($i = 1; $i <= 6; $i++) {
+        for ($i = 1; $i <= 10; $i++) {
             $label = mb_substr(trim($_POST['tz_label_' . $i] ?? ''), 0, 60);
             $tz    = mb_substr(trim($_POST['tz_zone_'  . $i] ?? ''), 0, 60);
             // Validate IANA timezone name by attempting to create a DateTimeZone
@@ -123,7 +123,7 @@ $weather_unit       = $db->query("SELECT setting_value FROM portal_settings WHER
 // Load timezone zones config
 $tz_zones_raw = $db->query("SELECT setting_value FROM portal_settings WHERE setting_key='timezone_zones'")->fetchColumn() ?: '[]';
 $tz_zones     = json_decode($tz_zones_raw, true) ?: [];
-while (count($tz_zones) < 6) $tz_zones[] = ['label' => '', 'tz' => ''];
+while (count($tz_zones) < 10) $tz_zones[] = ['label' => '', 'tz' => ''];
 
 // Build textarea text
 $sym_text = implode("\n", array_map(fn($s) => $s['symbol'] . ($s['label'] ? '|' . $s['label'] : ''), $symbols));
@@ -283,23 +283,32 @@ include __DIR__ . '/_layout.php';
 
   <!-- Timezone Zones -->
   <div class="card">
-    <div class="card-header">&#127758; World Clock Timezones <small style="font-weight:400;color:var(--text-muted)">(up to 6)</small></div>
+    <div class="card-header">&#127758; World Clock Timezones <small style="font-weight:400;color:var(--text-muted)">(up to 10)</small></div>
     <div class="card-body">
       <form method="post">
         <?= csrf_field() ?>
         <input type="hidden" name="section" value="timezones">
 
-        <?php for ($i = 1; $i <= 6; $i++): ?>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.25rem;margin-bottom:.25rem">
+          <span style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding-left:.2rem">Label</span>
+          <span style="font-size:.7rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;padding-left:.2rem">IANA Timezone</span>
+        </div>
+
+        <?php for ($i = 1; $i <= 10; $i++): ?>
         <?php $z = $tz_zones[$i-1]; ?>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem;margin-bottom:.4rem">
-          <input type="text" name="tz_label_<?= $i ?>" class="form-control"
-                 value="<?= h((string)($z['label'] ?? '')) ?>" placeholder="Label (e.g. London)" maxlength="60">
-          <input type="text" name="tz_zone_<?= $i ?>" class="form-control"
-                 value="<?= h((string)($z['tz'] ?? '')) ?>" placeholder="IANA TZ (e.g. Europe/London)"
-                 maxlength="60" list="tz-list">
+          <input type="text" id="tz_label_<?= $i ?>" name="tz_label_<?= $i ?>" class="form-control"
+                 value="<?= h((string)($z['label'] ?? '')) ?>" placeholder="e.g. San Francisco" maxlength="60"
+                 list="tz-city-list" autocomplete="off"
+                 onchange="tzLabelChanged(<?= $i ?>)">
+          <input type="text" id="tz_zone_<?= $i ?>" name="tz_zone_<?= $i ?>" class="form-control"
+                 value="<?= h((string)($z['tz'] ?? '')) ?>" placeholder="e.g. America/Los_Angeles"
+                 maxlength="60" list="tz-list" autocomplete="off"
+                 onchange="tzZoneChanged(<?= $i ?>)">
         </div>
         <?php endfor; ?>
 
+        <!-- IANA timezone datalist -->
         <datalist id="tz-list">
           <option value="America/New_York">
           <option value="America/Chicago">
@@ -338,7 +347,47 @@ include __DIR__ . '/_layout.php';
           <option value="UTC">
         </datalist>
 
-        <div class="form-hint">Use IANA timezone names — type to autocomplete from the list above, or check <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank" rel="noopener">tz database</a>.</div>
+        <!-- City name datalist for label field -->
+        <datalist id="tz-city-list">
+          <option value="New York">
+          <option value="Chicago">
+          <option value="Denver">
+          <option value="Phoenix">
+          <option value="Los Angeles">
+          <option value="San Francisco">
+          <option value="Anchorage">
+          <option value="Honolulu">
+          <option value="Toronto">
+          <option value="Vancouver">
+          <option value="São Paulo">
+          <option value="Mexico City">
+          <option value="London">
+          <option value="Paris">
+          <option value="Berlin">
+          <option value="Rome">
+          <option value="Madrid">
+          <option value="Amsterdam">
+          <option value="Zurich">
+          <option value="Stockholm">
+          <option value="Moscow">
+          <option value="Dubai">
+          <option value="Karachi">
+          <option value="Mumbai">
+          <option value="Bangalore">
+          <option value="Dhaka">
+          <option value="Bangkok">
+          <option value="Singapore">
+          <option value="Shanghai">
+          <option value="Tokyo">
+          <option value="Seoul">
+          <option value="Perth">
+          <option value="Sydney">
+          <option value="Melbourne">
+          <option value="Auckland">
+          <option value="UTC">
+        </datalist>
+
+        <div class="form-hint">Type a city name in Label to auto-fill the timezone, or type the IANA TZ to auto-fill the label. Check <a href="https://en.wikipedia.org/wiki/List_of_tz_database_time_zones" target="_blank" rel="noopener">full TZ list</a>.</div>
         <button type="submit" class="btn btn-success" style="margin-top:.75rem">Save Timezones</button>
       </form>
     </div>
@@ -347,27 +396,125 @@ include __DIR__ . '/_layout.php';
 </div><!-- /weather+tz grid -->
 
 <script>
-// Auto-fill lat/lon from city name using Open-Meteo geocoding API
+// City name → IANA timezone
+const CITY_TO_TZ = {
+  'New York':      'America/New_York',
+  'Chicago':       'America/Chicago',
+  'Denver':        'America/Denver',
+  'Phoenix':       'America/Phoenix',
+  'Los Angeles':   'America/Los_Angeles',
+  'San Francisco': 'America/Los_Angeles',
+  'Anchorage':     'America/Anchorage',
+  'Honolulu':      'America/Honolulu',
+  'Toronto':       'America/Toronto',
+  'Vancouver':     'America/Vancouver',
+  'São Paulo':     'America/Sao_Paulo',
+  'Mexico City':   'America/Mexico_City',
+  'London':        'Europe/London',
+  'Paris':         'Europe/Paris',
+  'Berlin':        'Europe/Berlin',
+  'Rome':          'Europe/Rome',
+  'Madrid':        'Europe/Madrid',
+  'Amsterdam':     'Europe/Amsterdam',
+  'Zurich':        'Europe/Zurich',
+  'Stockholm':     'Europe/Stockholm',
+  'Moscow':        'Europe/Moscow',
+  'Dubai':         'Asia/Dubai',
+  'Karachi':       'Asia/Karachi',
+  'Mumbai':        'Asia/Kolkata',
+  'Bangalore':     'Asia/Kolkata',
+  'Dhaka':         'Asia/Dhaka',
+  'Bangkok':       'Asia/Bangkok',
+  'Singapore':     'Asia/Singapore',
+  'Shanghai':      'Asia/Shanghai',
+  'Tokyo':         'Asia/Tokyo',
+  'Seoul':         'Asia/Seoul',
+  'Perth':         'Australia/Perth',
+  'Sydney':        'Australia/Sydney',
+  'Melbourne':     'Australia/Melbourne',
+  'Auckland':      'Pacific/Auckland',
+  'UTC':           'UTC',
+};
+
+// IANA timezone → display label
+const TZ_TO_LABEL = {
+  'America/New_York':    'New York',
+  'America/Chicago':     'Chicago',
+  'America/Denver':      'Denver',
+  'America/Phoenix':     'Phoenix',
+  'America/Los_Angeles': 'Los Angeles',
+  'America/Anchorage':   'Anchorage',
+  'America/Honolulu':    'Honolulu',
+  'America/Toronto':     'Toronto',
+  'America/Vancouver':   'Vancouver',
+  'America/Sao_Paulo':   'São Paulo',
+  'America/Mexico_City': 'Mexico City',
+  'Europe/London':       'London',
+  'Europe/Paris':        'Paris',
+  'Europe/Berlin':       'Berlin',
+  'Europe/Rome':         'Rome',
+  'Europe/Madrid':       'Madrid',
+  'Europe/Amsterdam':    'Amsterdam',
+  'Europe/Zurich':       'Zurich',
+  'Europe/Stockholm':    'Stockholm',
+  'Europe/Moscow':       'Moscow',
+  'Asia/Dubai':          'Dubai',
+  'Asia/Karachi':        'Karachi',
+  'Asia/Kolkata':        'Mumbai / Bangalore',
+  'Asia/Dhaka':          'Dhaka',
+  'Asia/Bangkok':        'Bangkok',
+  'Asia/Singapore':      'Singapore',
+  'Asia/Shanghai':       'Shanghai',
+  'Asia/Tokyo':          'Tokyo',
+  'Asia/Seoul':          'Seoul',
+  'Australia/Perth':     'Perth',
+  'Australia/Sydney':    'Sydney',
+  'Australia/Melbourne': 'Melbourne',
+  'Pacific/Auckland':    'Auckland',
+  'Pacific/Honolulu':    'Honolulu',
+  'UTC':                 'UTC',
+};
+
+function tzLabelChanged(i) {
+  const labelEl = document.getElementById('tz_label_' + i);
+  const zoneEl  = document.getElementById('tz_zone_'  + i);
+  const tz = CITY_TO_TZ[labelEl.value.trim()];
+  if (tz && !zoneEl.value.trim()) zoneEl.value = tz;
+}
+
+function tzZoneChanged(i) {
+  const labelEl = document.getElementById('tz_label_' + i);
+  const zoneEl  = document.getElementById('tz_zone_'  + i);
+  const label = TZ_TO_LABEL[zoneEl.value.trim()];
+  if (label && !labelEl.value.trim()) labelEl.value = label;
+}
+
+// Geocode city name or zip code using Nominatim (OpenStreetMap)
 async function geocodeCity(slot) {
   const nameInput = document.getElementById('city_name_' + slot);
   const latInput  = document.getElementById('city_lat_'  + slot);
   const lonInput  = document.getElementById('city_lon_'  + slot);
-  const name = nameInput.value.trim();
-  if (!name) { alert('Enter a city name first.'); return; }
+  const query = nameInput.value.trim();
+  if (!query) { alert('Enter a city name or zip code first.'); return; }
 
   try {
-    const res  = await fetch('https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=1&language=en&format=json');
+    const url = 'https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(query)
+              + '&format=json&limit=1&addressdetails=1';
+    const res  = await fetch(url, { headers: { 'Accept-Language': 'en' } });
     const data = await res.json();
-    const r    = data.results && data.results[0];
+    const r    = data && data[0];
     if (r) {
-      latInput.value = r.latitude.toFixed(4);
-      lonInput.value = r.longitude.toFixed(4);
-      // Update city name with full name if available
-      if (r.name && r.country_code) {
-        nameInput.value = r.name + (r.admin1 ? ', ' + r.admin1 : '') + ', ' + r.country_code.toUpperCase();
-      }
+      latInput.value = parseFloat(r.lat).toFixed(4);
+      lonInput.value = parseFloat(r.lon).toFixed(4);
+      // Build a tidy display name: city + state/region + country code
+      const a = r.address || {};
+      const city    = a.city || a.town || a.village || a.county || '';
+      const region  = a.state || '';
+      const country = a.country_code ? a.country_code.toUpperCase() : '';
+      const parts   = [city, region, country].filter(Boolean);
+      if (parts.length) nameInput.value = parts.join(', ');
     } else {
-      alert('City not found. Try a different spelling or enter coordinates manually.');
+      alert('Location not found. Try a different city name, zip/postal code, or enter coordinates manually.');
     }
   } catch(e) {
     alert('Geocoding unavailable. Please enter coordinates manually.');
