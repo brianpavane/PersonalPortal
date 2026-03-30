@@ -65,7 +65,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($section === 'stocks') {
         array_map('unlink', glob(CACHE_DIR . '/stocks_*.cache'));
     }
-}
 
     // ── Weather Cities ────────────────────────────────────────────────────────
     if ($section === 'weather') {
