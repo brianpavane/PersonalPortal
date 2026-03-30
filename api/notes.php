@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/portal_auth.php';
 portal_require_login_api();
 
 header('Content-Type: application/json; charset=utf-8');
+header('Cache-Control: no-store');
 
 $notes = db()->query(
     'SELECT id, title, content, color, sort_order, updated_at

@@ -46,7 +46,7 @@
   async function loadBookmarks() {
     container.innerHTML = '<div class="stock-loading"><span class="spinner"></span> Loading bookmarks…</div>';
     try {
-      const res  = await fetch('api/bookmarks.php');
+      const res  = await fetch('api/bookmarks.php', { cache: 'no-store' });
       if (!res.ok) { container.innerHTML = '<div class="stock-error">Auth required. <a href="portal_login.php">Sign in</a>.</div>'; return; }
       const cats = await res.json();
       renderBookmarks(cats);
@@ -66,7 +66,7 @@
       div.className = 'bm-category';
       const bms = (cat.bookmarks || []).map(bm => `
         <li class="bm-item" title="${escHtml(bm.description || bm.url)}">
-          <img class="bm-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(new URL(bm.url).hostname)}&sz=32"
+          <img class="bm-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(getHostname(bm.url))}&sz=32"
                onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 rx=%222%22 fill=%22%2330363d%22/></svg>'"
                alt="" loading="lazy" width="16" height="16">
           <a class="bm-link" href="${escHtml(bm.url)}" target="_blank" rel="noopener noreferrer">${escHtml(bm.title)}</a>
@@ -155,7 +155,7 @@
   async function loadWeather() {
     container.innerHTML = '<div class="stock-loading"><span class="spinner"></span></div>';
     try {
-      const res   = await fetch('api/weather.php');
+      const res   = await fetch('api/weather.php', { cache: 'no-store' });
       if (!res.ok) { container.innerHTML = '<div class="stock-loading">Auth required.</div>'; return; }
       const items = await res.json();
       renderWeather(items);
@@ -205,7 +205,7 @@
   async function loadNews() {
     container.innerHTML = '<div class="news-loading"><span class="spinner"></span> Loading news…</div>';
     try {
-      const res   = await fetch('api/news.php?limit=30');
+      const res   = await fetch('api/news.php?limit=30', { cache: 'no-store' });
       if (!res.ok) { container.innerHTML = '<div class="news-loading">Auth required.</div>'; return; }
       const items = await res.json();
       renderNews(items);
@@ -246,7 +246,7 @@
 
   async function loadNotes() {
     try {
-      const res   = await fetch('api/notes.php');
+      const res   = await fetch('api/notes.php', { cache: 'no-store' });
       if (!res.ok) { container.innerHTML = '<p style="color:var(--text-muted)">Auth required.</p>'; return; }
       const notes = await res.json();
       renderNotes(notes);
@@ -280,6 +280,10 @@ function escHtml(str) {
   const d = document.createElement('div');
   d.textContent = String(str ?? '');
   return d.innerHTML;
+}
+
+function getHostname(url) {
+  try { return new URL(url).hostname || url; } catch(e) { return url; }
 }
 
 function bulletsToHtml(text) {

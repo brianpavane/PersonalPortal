@@ -139,6 +139,11 @@ saves wipe their respective caches automatically).
 
 ## Version History & What Each Release Changes
 
+### v1.4.6
+- Fix bookmarks not rendering when any URL is missing a protocol (`https://`): `new URL()` was called inline with no error handling, crashing the entire category render. Replaced with a safe `getHostname()` helper.
+- Fix portal widgets not updating on refresh: `api/bookmarks.php` and `api/notes.php` sent no `Cache-Control` header, allowing browsers to serve stale data. Both now send `Cache-Control: no-store`. All fetch calls in `portal.js` also use `cache: 'no-store'` to bypass any in-memory browser cache.
+- No database changes.
+
 ### v1.4.5
 - Weather widget now supports up to **6 cities** (was 3). Existing cities are preserved.
 - New **Stock Display Mode** setting in Admin → Settings → Stock Symbols: choose *Ticker bar only* (default), *Widget only*, or *Both*. Run `docs/migrations/v1.4.5.sql` to seed the default.
