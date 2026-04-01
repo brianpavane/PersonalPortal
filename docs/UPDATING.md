@@ -1,245 +1,234 @@
-# Updating PersonalPortal
+# Upgrading PersonalPortal
 
-**Repository:** https://github.com/brianpavane/PersonalPortal
+**Repository:** https://github.com/brianpavane/PersonalPortal  
+**Current release:** v1.5.0
 
-How to apply new versions without reinstalling from scratch, from **any** previous version.
+This guide covers upgrading from **any previous version** to the latest release.  
+All migration files are idempotent — safe to run more than once.
 
 ---
 
-## Quick Upgrade (TL;DR)
+## Before You Start
 
-```bash
-# 1. Back up
-mysqldump -u DB_USER -p DB_NAME > backup_$(date +%Y%m%d).sql
-
-# 2. Pull new code
-cd /path/to/personalportal
-git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
-git pull origin main
-
-# 3. Run ALL migration files that are newer than your current version (see table below)
-#    All migrations are idempotent — safe to re-run; running extras causes no harm.
-
-# 4. Clear the cache
-rm -f /path/to/personalportal/cache/*.cache
-
-# 5. Verify — open portal, check version in footer
-```
+1. **Note your current version** — shown in the portal footer and admin sidebar.
+2. **Back up your database and files** (see Step 1 below).
+3. Upgrading takes about 5–10 minutes on Dreamhost shared hosting.
 
 ---
 
 ## Migration File Reference
 
-Every release publishes a migration file in `docs/migrations/`. Each file is **idempotent**
-(`CREATE TABLE IF NOT EXISTS`, `INSERT IGNORE`, etc.) — safe to run more than once.
+Every release that changes the database ships a migration file in `docs/migrations/`.
+Files that add no schema changes are no-ops (safe to run but do nothing).
 
-| From version | Run these migration files (in order) |
+| Your current version | Migration files to run (in order) |
 |---|---|
-| Fresh install | `v1.0.0.sql` only (or use `install/`) |
-| v1.0.0 → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
-| v1.1.x → latest | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` |
-| v1.2.x → latest | `v1.3.0.sql` → `v1.4.0.sql` |
-| v1.3.x → latest | `v1.4.0.sql` → `v1.4.5.sql` |
-| v1.4.x → latest | `v1.4.5.sql` |
-| Already on latest | Nothing to run |
+| Fresh install | Use `install/index.php` — do not run migrations manually |
+| v1.0.0 or v1.1.x | `v1.2.0.sql` → `v1.3.0.sql` → `v1.4.0.sql` → `v1.4.5.sql` |
+| v1.2.x | `v1.3.0.sql` → `v1.4.0.sql` → `v1.4.5.sql` |
+| v1.3.0 or v1.3.1 | `v1.4.0.sql` → `v1.4.5.sql` |
+| v1.4.0 – v1.4.4 | `v1.4.5.sql` |
+| v1.4.5 – v1.5.0 | Nothing to run (no schema changes) |
 
-**When in doubt:** run all migrations from `v1.0.0.sql` upward — it's safe.
+**When in doubt:** run all migrations in order — it's safe.
 
 ---
 
-## Detailed Steps
+## Step-by-Step Upgrade
 
-### 1. Back up first
+### Step 1 — Back up
 
+**Back up your database** (do this before touching any files):
+
+In **phpMyAdmin** (recommended on Dreamhost):
+1. Log into your Dreamhost panel → Databases → phpMyAdmin
+2. Select your database in the left panel
+3. Click **Export** → Quick → Format: SQL → **Go**
+4. Save the downloaded `.sql` file somewhere safe
+
+**Or via SSH/terminal:**
 ```bash
-# Export your database
-mysqldump -u DB_USER -p DB_NAME > backup_$(date +%Y%m%d).sql
-
-# (Optional) Archive your current files
-tar czf personalportal_backup_$(date +%Y%m%d).tar.gz /path/to/personalportal/
+mysqldump -h DB_HOST -u DB_USER -p DB_NAME > backup_$(date +%Y%m%d).sql
 ```
+Replace `DB_HOST`, `DB_USER`, `DB_NAME` with the values from your `config/config.php`.
 
-### 2. Pull the latest files
+---
 
-If you installed via git:
+### Step 2 — Pull the latest code
 
+**Via SSH on Dreamhost:**
 ```bash
-cd /path/to/personalportal
-# Confirm your remote points to the correct repo
-git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
+cd /path/to/your/personalportal
 git pull origin main
 ```
 
-If you installed without git (first time setup):
-
+If you have never set up git on this installation:
 ```bash
-cd /path/to/personalportal
+cd /path/to/your/personalportal
 git init
 git remote add origin https://github.com/brianpavane/PersonalPortal.git
 git fetch origin main
 git checkout main
 ```
 
-If you prefer a ZIP download (no git required):
-```
-https://github.com/brianpavane/PersonalPortal/archive/refs/heads/main.zip
-```
-Extract and upload the new files via FTP/SFTP, **skipping** `config/config.php`.
+**Without git (FTP/SFTP upload):**
+1. Download the ZIP: https://github.com/brianpavane/PersonalPortal/archive/refs/heads/main.zip
+2. Extract locally
+3. Upload **all files except `config/config.php`** to your server via FTP/SFTP
+4. **Do not overwrite** `config/config.php` — it contains your database credentials
 
-**Do not overwrite these files** (they contain your local configuration):
-- `config/config.php`
+---
 
-**Safe to delete** (auto-recreated at runtime):
-- `cache/` directory contents
+### Step 3 — Run migration SQL
 
-### 3. Run migration SQL
+Look up your current version in the migration table above and run the listed files.
 
-Migration files live at:
-https://github.com/brianpavane/PersonalPortal/tree/main/docs/migrations
+**phpMyAdmin (recommended on Dreamhost):**
+1. Log in to phpMyAdmin
+2. Select your database
+3. Click the **SQL** tab
+4. Open each migration file from `docs/migrations/` in a text editor, copy its contents, paste into the SQL tab, and click **Go**
+5. Repeat for each file in order
 
-Open phpMyAdmin or your MySQL client, select your database, then run each
-migration file that is newer than your installed version (see table above).
-
-**phpMyAdmin**: Database → SQL tab → paste contents → Go
-
-**MySQL CLI**:
+**MySQL CLI (SSH):**
 ```bash
-mysql -h DB_HOST -u DB_USER -p DB_NAME < docs/migrations/v1.3.0.sql
+# Replace DB_HOST, DB_USER, DB_NAME with values from your config/config.php
+
+# Example: upgrading from v1.3.x
 mysql -h DB_HOST -u DB_USER -p DB_NAME < docs/migrations/v1.4.0.sql
+mysql -h DB_HOST -u DB_USER -p DB_NAME < docs/migrations/v1.4.5.sql
+
+# Example: upgrading from v1.4.0–v1.4.4
+mysql -h DB_HOST -u DB_USER -p DB_NAME < docs/migrations/v1.4.5.sql
 ```
 
-### 4. Check config.php for new constants
+---
 
-If a new version adds constants to `config/config.php`, you need to add them to
-your installed copy. Diff the example file against yours:
+### Step 4 — Check config.php for new constants
+
+If a release adds new constants, you need to add them to your installed `config/config.php`.
+Compare the example file against yours:
 
 ```bash
 diff config/config.php.example config/config.php
 ```
 
-Add any missing `define()` lines. Missing constants will cause PHP warnings.
+Add any `define()` lines that appear in the example but not in your file.
+Missing constants cause PHP warnings and may break features.
 
-### 5. Clear the cache
+**No new constants were added in v1.5.0.** This step is only needed when upgrading
+across a major feature release (v1.3.0, v1.4.0).
+
+---
+
+### Step 5 — Clear the cache
+
+Delete all cached files so the portal fetches fresh data:
 
 ```bash
 rm -f /path/to/personalportal/cache/*.cache
 ```
 
-Or visit **Admin → Settings** and clear relevant caches by re-saving (stock/news
-saves wipe their respective caches automatically).
-
-### 6. Verify the upgrade
-
-- Open the portal in your browser
-- Check the version number in the footer matches the release you deployed
-- Spot-check that bookmarks, notes, stocks, and news all load correctly
-- If you added new widgets (weather, world clock), configure them in Admin → Settings
+**In phpMyAdmin / no SSH access:** You can trigger a cache clear by visiting
+**Admin → Settings**, making a minor change to Stock Symbols (add and remove a space),
+and clicking Save — this wipes the stock and news caches automatically.
 
 ---
 
-## Version History & What Each Release Changes
+### Step 6 — Verify
 
-### v1.4.7
-- Fix favicons always showing as gray boxes: Google's `s2/favicons` service now redirects requests to `t1.gstatic.com`, which was blocked by the site's Content Security Policy. Switched to DuckDuckGo's favicon service (`icons.duckduckgo.com`), which serves images directly with no redirects. Updated `img-src` in `.htaccess` CSP accordingly.
-- Fixed `onerror` fallback SVG having unescaped `<` characters in the HTML attribute value; now properly URL-encoded.
-- No database changes.
+1. Open your portal in the browser
+2. Check the version number in the **footer** — it should read **v1.5.0**
+3. Confirm each widget loads: Bookmarks, Notes, Stocks/Ticker, Weather, News, World Clock
+4. Check Admin → Settings to configure any new features (see What's New below)
 
-### v1.4.6
-- Fix bookmarks not rendering when any URL is missing a protocol (`https://`): `new URL()` was called inline with no error handling, crashing the entire category render. Replaced with a safe `getHostname()` helper.
-- Fix portal widgets not updating on refresh: `api/bookmarks.php` and `api/notes.php` sent no `Cache-Control` header, allowing browsers to serve stale data. Both now send `Cache-Control: no-store`. All fetch calls in `portal.js` also use `cache: 'no-store'` to bypass any in-memory browser cache.
-- No database changes.
+---
 
-### v1.4.5
-- Weather widget now supports up to **6 cities** (was 3). Existing cities are preserved.
-- New **Stock Display Mode** setting in Admin → Settings → Stock Symbols: choose *Ticker bar only* (default), *Widget only*, or *Both*. Run `docs/migrations/v1.4.5.sql` to seed the default.
-- No new database tables; one new `portal_settings` key: `stock_display_mode`.
+## What's New in v1.5.0
 
-### v1.4.4
-- Weather Locate button now works: geocoding is proxied through `admin/geocode.php` server-side instead of calling Nominatim directly from the browser (browser cross-origin requests were being blocked).
-- Admin sidebar now has a **Dashboard** link at the top of navigation.
-- No database changes.
+This is a consolidated release covering all improvements since v1.4.0.
 
-### v1.4.3
-- Fix stock widget "Stock data unavailable" error: Yahoo Finance v8 now requires a crumb cookie; the API now fetches a session crumb automatically before each batch of quotes.
-- Switched from `query1` to `query2` Yahoo Finance host (more permissive).
-- Removed PHP 8.0-only `mixed` type hint for PHP 7.4 compatibility.
-- Added output buffering to prevent PHP warnings from corrupting the JSON response.
-- No database changes.
+### New features
+- **Weather widget** — up to **6 cities** (was 3). Configure in Admin → Settings.
+- **Weather Locate button** — type a city name or zip/postal code and click Locate to auto-fill coordinates. Uses server-side geocoding (no browser CORS issues).
+- **World Clock** — up to **10 timezone slots** (was 6). Type a city name in the Label field to auto-fill the IANA timezone, or type the timezone to auto-fill the label. Includes San Francisco, Mumbai, and Bangalore presets.
+- **Stock display mode** — choose between *Ticker bar only* (default), *Sidebar widget only*, or *Both*, in Admin → Settings → Stock Symbols.
+- **Admin Dashboard link** — the admin sidebar now has a Dashboard link at the top.
 
-### v1.4.2
-- World Clock now supports up to 10 timezones (was 6).
-- Typing a city name in the Label field auto-fills the IANA timezone; typing an IANA timezone auto-fills the label. San Francisco, Mumbai, and Bangalore are included in the city lookup.
-- Weather Locate button now uses Nominatim (OpenStreetMap) — supports city names **and** zip/postal codes.
-- No database changes.
+### Bug fixes
+- Stock widget was reporting "Stock data unavailable" — fixed Yahoo Finance v8 crumb/cookie authentication, switched to the `query2` host, and added output buffering to prevent PHP warnings corrupting JSON.
+- Settings page returned HTTP 500 — a misplaced closing brace placed the Weather and Timezone save handlers outside the POST block.
+- Bookmark favicons showed as gray boxes — Google's `s2/favicons` service redirects to `gstatic.com`, which was blocked by the Content Security Policy. Switched to DuckDuckGo's favicon service (no redirects). CSP `img-src` updated accordingly.
+- Bookmarks failed to render when any URL was stored without a `https://` protocol — `new URL()` threw an uncaught error that crashed the entire category. Fixed with a safe `getHostname()` helper.
+- Portal widgets did not refresh (browser F5 or widget refresh button served stale data) — `api/bookmarks.php` and `api/notes.php` sent no `Cache-Control` header, allowing browsers to cache responses indefinitely. Both now send `Cache-Control: no-store`.
+- PHP 7.4 compatibility — removed `mixed` type hint that required PHP 8.0+.
 
-### v1.4.1
-- Bug fix: `admin/settings.php` returned HTTP 500 on every load due to misplaced closing brace that placed the Weather and Timezone POST handlers outside the `if (POST)` block.
-- Added `config/config.php.example` for use when diffing config during upgrades.
-- No database changes.
+### Configuration after upgrading
+- **Stock display mode**: visit Admin → Settings → Stock Symbols, choose your preferred display, Save.
+- **Additional weather cities**: visit Admin → Settings → Weather Cities, fill in up to 6 cities using the Locate button or manual coordinates.
+- **Additional timezone slots**: visit Admin → Settings → World Clock Timezones — 10 slots now available.
 
-### v1.4.0
-- **No new tables.** Weather city config and timezone zones stored as JSON in `portal_settings`.
-- Stock ticker switched from Yahoo Finance v7 (deprecated, requires auth) to v8 chart endpoint.
-- New widgets: Weather (Open-Meteo, no API key) and World Clock (client-side, up to 6 zones).
-- Header clock removed; replaced by configurable World Clock widget.
-- Configure both in **Admin → Settings** (bottom two sections).
-- **After upgrading:** run `docs/migrations/v1.4.0.sql`, then visit Admin → Settings to configure
-  weather cities and timezone zones.
+---
 
-### v1.3.1
-- Arrow-based (▲/▼) sort ordering for categories, notes, and bookmarks replaces manual number entry.
-- `Cache-Control` on auth-protected API endpoints corrected to `private` when portal auth is on.
-- No database changes.
+## Version History
 
-### v1.3.0
-- **New tables:** `portal_users`, `portal_tokens`.
-- New: separate portal user login (non-admin accounts), remember-me tokens (30-day).
-- New: 16-colour accent palette picker in admin.
-- New: version number displayed in portal footer and admin sidebar.
-- **After upgrading:** run `docs/migrations/v1.3.0.sql`, then visit Admin → Portal Users to
-  create portal user accounts (if you want to enable access control).
-
-### v1.2.1
-- Installer bug fix for Dreamhost shared hosting (`SET time_zone` privilege error).
-- Config file injection fix in installer.
-- No database changes.
-
-### v1.2.0
-- **No new tables.** TOTP secret stored in `portal_settings`.
-- New: TOTP-based two-factor authentication for admin login.
-- No database changes.
-
-### v1.1.0
-- Security hardening: CSRF on login, rate limiting, cache serialization fix, SSRF prevention.
-- No database changes.
-
-### v1.0.0
-- Initial release. Full schema in `docs/migrations/v1.0.0.sql`.
+| Version | Date | Summary |
+|---|---|---|
+| **v1.5.0** | 2026-04-01 | Consolidated release: 6 weather cities, 10 timezones, stock display mode, favicon fix, refresh fix, stocks API crumb auth |
+| v1.4.7 | 2026-03-30 | Favicon CSP fix — switched to DuckDuckGo favicon service |
+| v1.4.6 | 2026-03-30 | Favicon URL crash fix; Cache-Control: no-store on bookmarks/notes |
+| v1.4.5 | 2026-03-30 | Weather up to 6 cities; stock display mode setting |
+| v1.4.4 | 2026-03-30 | Server-side geocode proxy; Dashboard link in admin sidebar |
+| v1.4.3 | 2026-03-30 | Stocks crumb auth (Yahoo Finance v8); PHP 7.4 compat |
+| v1.4.2 | 2026-03-30 | Timezones up to 10; city↔TZ auto-fill; zip code geocoding |
+| v1.4.1 | 2026-03-30 | settings.php 500 fix; config.php.example |
+| v1.4.0 | 2026-03-30 | Weather + World Clock widgets; Yahoo Finance v8; header clock removed |
+| v1.3.1 | 2026-03-30 | ▲/▼ sort ordering; Cache-Control security fix |
+| v1.3.0 | 2026-03-30 | Portal user accounts; 16-colour palette; version display |
+| v1.2.1 | 2026-03-30 | Installer bug fix for Dreamhost |
+| v1.2.0 | 2026-03-30 | TOTP two-factor authentication |
+| v1.1.0 | 2026-03-30 | Security hardening (CSRF, rate limiting, SSRF prevention) |
+| v1.0.0 | 2026-03-30 | Initial release |
 
 ---
 
 ## Rollback
 
-If something goes wrong:
+If something goes wrong after upgrading:
 
+**Restore your database:**
+
+phpMyAdmin: Database → Import → select your backup `.sql` file → Go
+
+SSH:
 ```bash
-# Restore database
 mysql -h DB_HOST -u DB_USER -p DB_NAME < backup_YYYYMMDD.sql
+```
 
-# Restore files via git
-git remote set-url origin https://github.com/brianpavane/PersonalPortal.git
-git checkout <previous-commit-hash>   # use 'git log' to find the hash before your upgrade
+**Restore files via git:**
+```bash
+# Find the commit hash before your upgrade
+git log --oneline
 
-# Or restore from file archive
+# Roll back to that commit
+git checkout <previous-commit-hash>
+```
+
+**Restore files from archive:**
+```bash
 tar xzf personalportal_backup_YYYYMMDD.tar.gz -C /path/to/
 ```
 
 ---
 
-## Dreamhost-specific Notes
+## Dreamhost Notes
 
-- Run migrations via phpMyAdmin (use the SQL tab).
-- The `install/index.php` installer can also be re-run to apply the latest `install/schema.sql`
-  (which is cumulative), but you **must** re-enter your config or it will overwrite `config.php`.
-  Prefer running individual migration files instead.
-- Clear PHP's opcode cache if you have one enabled: `opcache_reset()` or restart the PHP process.
+- **phpMyAdmin** is the easiest way to run migrations — no SSH required.
+  Access it via your Dreamhost panel under Databases.
+- **SSH access** is available on all Dreamhost plans — enable it in the panel under Users.
+- The `DB_HOST` in your `config/config.php` is your Dreamhost MySQL hostname
+  (typically `mysql.yourdomain.com`) — always use this when running `mysql` CLI commands.
+- If the portal looks unchanged after upgrading, your browser may have cached the old CSS/JS.
+  Hard refresh with **Ctrl+Shift+R** (Windows/Linux) or **Cmd+Shift+R** (Mac).
+- PHP opcode cache: if you have OPcache enabled, you may need to restart PHP-FPM or
+  touch your `.htaccess` file to clear compiled bytecode.

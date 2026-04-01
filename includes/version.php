@@ -18,6 +18,7 @@
  *   1.4.5  2026-03-30  Weather up to 6 cities; stock display mode setting (ticker/widget/both)
  *   1.4.6  2026-03-30  Fix favicon crash on malformed URLs; fix stale cache on refresh
  *   1.4.7  2026-03-30  Fix favicons: switch to DuckDuckGo service; update CSP img-src
+ *   1.5.0  2026-04-01  Consolidated release of all 1.4.x features and fixes
  */
-define('APP_VERSION',      '1.4.7');
-define('APP_VERSION_DATE', '2026-03-30');
+define('APP_VERSION',      '1.5.0');
+define('APP_VERSION_DATE', '2026-04-01');
