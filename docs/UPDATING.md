@@ -139,6 +139,11 @@ saves wipe their respective caches automatically).
 
 ## Version History & What Each Release Changes
 
+### v1.4.7
+- Fix favicons always showing as gray boxes: Google's `s2/favicons` service now redirects requests to `t1.gstatic.com`, which was blocked by the site's Content Security Policy. Switched to DuckDuckGo's favicon service (`icons.duckduckgo.com`), which serves images directly with no redirects. Updated `img-src` in `.htaccess` CSP accordingly.
+- Fixed `onerror` fallback SVG having unescaped `<` characters in the HTML attribute value; now properly URL-encoded.
+- No database changes.
+
 ### v1.4.6
 - Fix bookmarks not rendering when any URL is missing a protocol (`https://`): `new URL()` was called inline with no error handling, crashing the entire category render. Replaced with a safe `getHostname()` helper.
 - Fix portal widgets not updating on refresh: `api/bookmarks.php` and `api/notes.php` sent no `Cache-Control` header, allowing browsers to serve stale data. Both now send `Cache-Control: no-store`. All fetch calls in `portal.js` also use `cache: 'no-store'` to bypass any in-memory browser cache.

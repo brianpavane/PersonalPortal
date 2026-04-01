@@ -65,12 +65,12 @@ Options -Indexes
   # - default-src 'none'  → deny everything not explicitly allowed
   # - script-src 'self' 'unsafe-inline' → inline scripts exist in admin pages
   # - style-src 'self' 'unsafe-inline'  → inline styles used throughout
-  # - img-src 'self' data: https://www.google.com → favicons + data: SVG fallback
+  # - img-src 'self' data: https://icons.duckduckgo.com → favicons + data: SVG fallback
   # - connect-src 'self' → AJAX calls to /api/
   # - form-action 'self'  → forms only POST back to this origin
   # - frame-ancestors 'none' → stronger than X-Frame-Options for modern browsers
   # - base-uri 'self'    → block <base> tag injection
-  Header always set Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'"
+  Header always set Content-Security-Policy "default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://icons.duckduckgo.com; connect-src 'self'; font-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'"
 
   # Disable dangerous browser features
   Header always set Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), bluetooth=(), display-capture=()"

@@ -66,8 +66,8 @@
       div.className = 'bm-category';
       const bms = (cat.bookmarks || []).map(bm => `
         <li class="bm-item" title="${escHtml(bm.description || bm.url)}">
-          <img class="bm-favicon" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(getHostname(bm.url))}&sz=32"
-               onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22><rect width=%2216%22 height=%2216%22 rx=%222%22 fill=%22%2330363d%22/></svg>'"
+          <img class="bm-favicon" src="https://icons.duckduckgo.com/ip3/${encodeURIComponent(getHostname(bm.url))}.ico"
+               onerror="this.onerror=null;this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 rx=%222%22 fill=%22%2330363d%22/%3E%3C/svg%3E'"
                alt="" loading="lazy" width="16" height="16">
           <a class="bm-link" href="${escHtml(bm.url)}" target="_blank" rel="noopener noreferrer">${escHtml(bm.title)}</a>
         </li>`
