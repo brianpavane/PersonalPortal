@@ -1,7 +1,7 @@
 # Upgrading PersonalPortal
 
 **Repository:** https://github.com/brianpavane/PersonalPortal  
-**Current release:** v1.5.0
+**Current release:** v1.5.1
 
 This guide covers upgrading from **any previous version** to the latest release.  
 All migration files are idempotent — safe to run more than once.
@@ -28,7 +28,7 @@ Files that add no schema changes are no-ops (safe to run but do nothing).
 | v1.2.x | `v1.3.0.sql` → `v1.4.0.sql` → `v1.4.5.sql` |
 | v1.3.0 or v1.3.1 | `v1.4.0.sql` → `v1.4.5.sql` |
 | v1.4.0 – v1.4.4 | `v1.4.5.sql` |
-| v1.4.5 – v1.5.0 | Nothing to run (no schema changes) |
+| v1.4.5 – v1.5.1 | Nothing to run (no schema changes) |
 
 **When in doubt:** run all migrations in order — it's safe.
 
@@ -116,7 +116,7 @@ diff config/config.php.example config/config.php
 Add any `define()` lines that appear in the example but not in your file.
 Missing constants cause PHP warnings and may break features.
 
-**No new constants were added in v1.5.0.** This step is only needed when upgrading
+**No new constants were added in v1.5.1.** This step is only needed when upgrading
 across a major feature release (v1.3.0, v1.4.0).
 
 ---
@@ -138,9 +138,18 @@ and clicking Save — this wipes the stock and news caches automatically.
 ### Step 6 — Verify
 
 1. Open your portal in the browser
-2. Check the version number in the **footer** — it should read **v1.5.0**
+2. Check the version number in the **footer** — it should read **v1.5.1**
 3. Confirm each widget loads: Bookmarks, Notes, Stocks/Ticker, Weather, News, World Clock
 4. Check Admin → Settings to configure any new features (see What's New below)
+
+---
+
+## What's New in v1.5.1
+
+No new features or schema changes. This is a maintenance release.
+
+- Added `CLAUDE.md` — developer guide covering project structure, versioning rules, documentation publishing, security checklist, and release workflow.
+- Consolidated all development to the `main` branch (removed feature branches).
 
 ---
 
@@ -174,7 +183,8 @@ This is a consolidated release covering all improvements since v1.4.0.
 
 | Version | Date | Summary |
 |---|---|---|
-| **v1.5.0** | 2026-04-01 | Consolidated release: 6 weather cities, 10 timezones, stock display mode, favicon fix, refresh fix, stocks API crumb auth |
+| **v1.5.1** | 2026-04-01 | Add CLAUDE.md; consolidate to main branch; no schema changes |
+| v1.5.0 | 2026-04-01 | Consolidated release: 6 weather cities, 10 timezones, stock display mode, favicon fix, refresh fix, stocks API crumb auth |
 | v1.4.7 | 2026-03-30 | Favicon CSP fix — switched to DuckDuckGo favicon service |
 | v1.4.6 | 2026-03-30 | Favicon URL crash fix; Cache-Control: no-store on bookmarks/notes |
 | v1.4.5 | 2026-03-30 | Weather up to 6 cities; stock display mode setting |

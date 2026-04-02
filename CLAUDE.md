@@ -5,7 +5,7 @@
 PersonalPortal is a self-hosted personal dashboard built with PHP 8+, MySQL, and vanilla JavaScript.
 Designed for Dreamhost shared hosting. No frameworks, no build tools, no npm.
 
-**Current version:** `1.5.0` (defined in `includes/version.php`)  
+**Current version:** `1.5.1` (defined in `includes/version.php`)  
 **GitHub repo:** https://github.com/brianpavane/PersonalPortal  
 **Branch:** `main`
 
